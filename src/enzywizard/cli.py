@@ -12,6 +12,7 @@ from .commands.conservation import add_conservation_parser
 from .commands.embedding import add_embedding_parser
 from .commands.pocket import add_pocket_parser
 from .commands.substrate import add_substrate_parser
+from .commands.dock import add_dock_parser
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -32,6 +33,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_embedding_parser(subparsers)
     add_pocket_parser(subparsers)
     add_substrate_parser(subparsers)
+    add_dock_parser(subparsers)
 
     return parser
 

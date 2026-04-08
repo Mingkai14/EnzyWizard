@@ -14,7 +14,7 @@ from ..utils.structure_utils import get_single_chain,get_residues_by_chain
 from ..utils.IO_utils import write_pdb
 
 
-def compute_pockets(struct: Structure, logger, min_rad: int = 1.8, max_rad: int =6.2, min_volume: int =50) -> List[Dict[str, Any]] | None:
+def compute_pockets(struct: Structure, logger, min_rad: float = 1.8, max_rad: float =6.2, min_volume: int =50) -> List[Dict[str, Any]] | None:
     if min_rad <= 0 or max_rad <= 0 or min_volume <= 0 or min_rad > max_rad:
         logger.print("[ERROR] Invalid PyVOL parameters.")
         return None

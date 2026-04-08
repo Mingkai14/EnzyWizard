@@ -7,7 +7,8 @@ from Bio.PDB import MMCIFParser, PDBParser, Structure, Atom
 from ..utils.logging_utils import Logger
 from Bio.Data.IUPACData import protein_letters_3to1
 
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Any
+import numpy as np
 
 def get_first_model(struct: Structure, logger: Logger) -> Model | None:
     for m in struct:
@@ -86,3 +87,41 @@ def get_sequence(residues: List[Tuple[Tuple[str, int, str], str, Tuple[float, fl
 
     return "".join(seq_chars)
 
+def get_structure_box(struct: Structure, logger: Logger) -> Dict[str, Any] | None:
+    try:
+        coord_list = []
+
+        for atom in struct.get_atoms():
+            coord = atom.get_coord()
+            if coord is None or len(coord) != 3:
+                continue
+
+            try:
+                x = float(coord[0])
+                y = float(coord[1])
+                z = float(coord[2])
+            except Exception:
+                continue
+
+            coord_list.append([x, y, z])
+
+        if len(coord_list) == 0:
+            logger.print("[ERROR] No valid atom coordinates found in Structure.")
+            return None
+
+        coords = np.asarray(coord_list, dtype=float)
+
+        mn = np.min(coords, axis=0)
+        mx = np.max(coords, axis=0)
+
+        center_coord = ((mn + mx) / 2.0).tolist()
+        box_boundaries = (mx - mn).tolist()
+
+        return {
+            "center_coord": [float(x) for x in center_coord],
+            "box_boundaries": [float(x) for x in box_boundaries],
+        }
+
+    except Exception:
+        logger.print("[ERROR] Failed to compute box space for Structure.")
+        return None

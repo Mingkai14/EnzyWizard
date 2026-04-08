@@ -1,52 +1,23 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 import re
 
 from rdkit import Chem
 
 from ..utils.logging_utils import Logger
 
-
-def load_sdf_mol_3d(sdf_path: str | Path, logger: Logger) -> Chem.Mol | None:
-    try:
-        sdf_path = Path(sdf_path)
-
-        if not sdf_path.exists() or sdf_path.stat().st_size <= 0:
-            logger.print("[ERROR] Invalid input SDF file.")
-            return None
-
-        supplier = Chem.SDMolSupplier(str(sdf_path), removeHs=False)
-        if supplier is None or len(supplier) == 0:
-            logger.print("[ERROR] Failed to load SDF file.")
-            return None
-
-        mol = supplier[0]
-        if mol is None:
-            logger.print("[ERROR] Failed to parse Mol from SDF file.")
-            return None
-
-        if mol.GetNumConformers() <= 0:
-            logger.print("[ERROR] Input SDF does not contain 3D coordinates.")
-            return None
-
-        return mol
-
-    except Exception:
-        logger.print("[ERROR] Failed to read Mol(3D) from SDF file.")
-        return None
-
-
-def get_sdf_atom_info(
-    sdf_path: str | Path,
-    logger: Logger,
-) -> Dict[str, Any] | None:
-    mol = load_sdf_mol_3d(sdf_path, logger)
+def get_sdf_atom_info_from_mol(mol: Chem.Mol, logger: Logger) -> List[Dict[str, Any]] | None:
     if mol is None:
+        logger.print("[ERROR] Input Mol is None.")
         return None
 
     try:
+        if mol.GetNumConformers() == 0:
+            logger.print("[ERROR] Mol has no 3D conformer.")
+            return None
+
         atom_info_list: List[Dict[str, Any]] = []
 
         for atom in mol.GetAtoms():
@@ -57,13 +28,10 @@ def get_sdf_atom_info(
                 }
             )
 
-        return {
-            "atom_count": int(mol.GetNumAtoms()),
-            "atom_info_list": atom_info_list,
-        }
+        return atom_info_list
 
     except Exception:
-        logger.print("[ERROR] Failed to extract atom information from SDF file.")
+        logger.print("[ERROR] Failed to extract atom information from Mol.")
         return None
 
 
@@ -103,10 +71,7 @@ def get_pdbqt_atom_info_from_lines(lines: List[str]) -> List[Dict[str, Any]] | N
         return None
 
 
-def get_pdbqt_index_mapping(
-    pdbqt_path: str | Path,
-    logger: Logger,
-) -> List[Dict[str, Any]] | None:
+def get_pdbqt_index_mapping(pdbqt_path: str | Path,logger: Logger) -> List[Dict[str, Any]] | None:
     try:
         pdbqt_path = Path(pdbqt_path)
 
@@ -171,10 +136,7 @@ def get_pdbqt_index_mapping(
         return None
 
 
-def get_pose_ligand_block_list(
-    pose_string: str,
-    logger: Logger,
-) -> List[List[str]] | None:
+def get_pose_ligand_block_list(pose_string: str,logger: Logger) -> List[List[str]] | None:
     if not isinstance(pose_string, str) or len(pose_string.strip()) == 0:
         logger.print("[ERROR] Invalid pose string.")
         return None
@@ -224,7 +186,6 @@ def get_pose_for_substrate_atom_info(
     substrate_name: str,
     ligand_order_index: int,
     pose_string: str,
-    original_atom_count: int,
     original_atom_info_list: List[Dict[str, Any]],
     mapping_info_list: List[Dict[str, Any]],
     logger: Logger,
@@ -237,16 +198,19 @@ def get_pose_for_substrate_atom_info(
         logger.print("[ERROR] ligand_order_index must be non-negative.")
         return None
 
-    if original_atom_count <= 0:
-        logger.print("[ERROR] original_atom_count must be positive.")
-        return None
-
-    if not isinstance(original_atom_info_list, list) or len(original_atom_info_list) != original_atom_count:
+    if not isinstance(original_atom_info_list, list) or len(original_atom_info_list)==0:
         logger.print("[ERROR] Invalid original_atom_info_list.")
         return None
 
-    if not isinstance(mapping_info_list, list) or len(mapping_info_list) != original_atom_count:
+    if not isinstance(mapping_info_list, list) or len(mapping_info_list) == 0:
         logger.print("[ERROR] Invalid mapping_info_list.")
+        return None
+
+    original_index_set = set(item["atom_index"] for item in original_atom_info_list)
+    mapping_index_set = set(item["original_atom_index"] for item in mapping_info_list)
+
+    if not mapping_index_set.issubset(original_index_set):
+        logger.print("[ERROR] Mapping contains invalid original atom indices.")
         return None
 
     ligand_block_list = get_pose_ligand_block_list(pose_string, logger)
@@ -293,20 +257,11 @@ def get_pose_for_substrate_atom_info(
                 }
             )
 
-        if len(enriched_mapping_info_list) != original_atom_count:
-            logger.print("[ERROR] Mapping size mismatch with original atoms.")
-            return None
-
         enriched_mapping_info_list.sort(key=lambda x: int(x["pdbqt_atom_index"]))
 
-        expected_index_set = set(
-            int(item["pdbqt_atom_index"]) for item in enriched_mapping_info_list
-        )
+        expected_index_set = set(int(item["pdbqt_atom_index"]) for item in enriched_mapping_info_list)
 
-        expected_pdbqt_atom_name_list = [
-            str(item["pdbqt_atom_name"]).upper()
-            for item in enriched_mapping_info_list
-        ]
+        expected_pdbqt_atom_name_list = [str(item["pdbqt_atom_name"]).upper() for item in enriched_mapping_info_list]
 
         block_lines = ligand_block_list[ligand_order_index]
         matched_atom_info_list = get_pdbqt_atom_info_from_lines(block_lines)
@@ -314,15 +269,13 @@ def get_pose_for_substrate_atom_info(
             logger.print("[ERROR] Failed to parse atom information from pose ligand block.")
             return None
 
-        if len(matched_atom_info_list) != original_atom_count:
-            logger.print(f"[ERROR] Atom count mismatch for substrate: {substrate_name}")
+        if len(matched_atom_info_list) != len(mapping_info_list):
+            logger.print("[ERROR] Atom count mismatch between pose and mapping.")
             return None
 
         matched_atom_info_list.sort(key=lambda x: int(x["pdbqt_atom_index"]))
 
-        pose_index_set = set(
-            int(item["pdbqt_atom_index"]) for item in matched_atom_info_list
-        )
+        pose_index_set = set(int(item["pdbqt_atom_index"]) for item in matched_atom_info_list)
         if pose_index_set != expected_index_set:
             logger.print(f"[ERROR] PDBQT atom index mismatch for substrate: {substrate_name}")
             return None
@@ -373,57 +326,154 @@ def get_pose_for_substrate_atom_info(
         logger.print(f"[ERROR] Failed to parse pose for substrate: {substrate_name}")
         return None
 
+def split_vina_pose_string(pose_string: str,logger: Logger) -> List[str] | None:
+    if not isinstance(pose_string, str):
+        logger.print("[ERROR] pose_string must be a string.")
+        return None
 
-def write_docked_sdf_from_atom_info(
-    original_mol_3d: Chem.Mol,
-    docked_atom_info_list: List[Dict[str, Any]],
-    sdf_path: str | Path,
-    logger: Logger,
-) -> bool:
-    if original_mol_3d is None or original_mol_3d.GetNumConformers() <= 0:
-        logger.print("[ERROR] Invalid original Mol(3D).")
-        return False
+    text = pose_string.strip()
+    if not text:
+        logger.print("[ERROR] Vina returned empty pose string.")
+        return []
 
-    if not isinstance(docked_atom_info_list, list) or len(docked_atom_info_list) != original_mol_3d.GetNumAtoms():
-        logger.print("[ERROR] Invalid docked_atom_info_list.")
-        return False
+    lines = text.splitlines()
+    pose_string_list: List[str] = []
+
+    current_block: List[str] = []
+    in_model = False
 
     try:
-        sdf_path = Path(sdf_path)
-        sdf_path.parent.mkdir(parents=True, exist_ok=True)
+        for line in lines:
+            if line.startswith("MODEL"):
+                if len(current_block) > 0:
+                    logger.print("[ERROR] Found a new MODEL before closing previous ENDMDL.")
+                    return None
 
-        mol = Chem.Mol(original_mol_3d)
-        conf = mol.GetConformer()
+                in_model = True
+                current_block.append(line)
+                continue
 
-        for item in docked_atom_info_list:
-            original_atom_index = int(item.get("original_atom_index", 0))
-            x = float(item.get("x", 0.0))
-            y = float(item.get("y", 0.0))
-            z = float(item.get("z", 0.0))
+            if line.startswith("ENDMDL"):
+                if not in_model:
+                    logger.print("[ERROR] Found ENDMDL before MODEL.")
+                    return None
 
-            if original_atom_index <= 0 or original_atom_index > mol.GetNumAtoms():
-                logger.print("[ERROR] Invalid original atom index in docked_atom_info_list.")
-                return False
+                current_block.append(line)
+                pose_string_list.append("\n".join(current_block).strip() + "\n")
+                current_block = []
+                in_model = False
+                continue
 
-            atom = mol.GetAtomWithIdx(original_atom_index - 1)
-            original_atom_name = str(item.get("original_atom_name", "")).upper()
-            if original_atom_name and atom.GetSymbol().upper() != original_atom_name:
-                logger.print("[ERROR] Atom name mismatch when writing docked SDF.")
-                return False
+            if in_model:
+                current_block.append(line)
 
-            conf.SetAtomPosition(original_atom_index - 1, (x, y, z))
+        if in_model or len(current_block) > 0:
+            logger.print("[ERROR] Incomplete MODEL/ENDMDL block in pose_string.")
+            return None
 
-        writer = Chem.SDWriter(str(sdf_path))
-        conf_id = conf.GetId()
-        writer.write(mol, confId=conf_id)
-        writer.close()
+        if len(pose_string_list) == 0:
+            logger.print("[ERROR] No valid MODEL/ENDMDL pose block found in pose_string.")
+            return None
 
-        if not sdf_path.exists() or sdf_path.stat().st_size <= 0:
-            logger.print("[ERROR] Failed to save docked SDF file.")
-            return False
-
-        return True
+        return pose_string_list
 
     except Exception:
-        logger.print("[ERROR] Failed to write docked atom information to SDF file.")
-        return False
+        logger.print("[ERROR] Failed to split Vina pose string.")
+        return None
+
+def get_substrate_sdf_path_group_dict(substrate_names: str,substrate_dir: str | Path,logger: Logger) -> Tuple[List[str], Dict[str, List[str]]] | None:
+    if not isinstance(substrate_names, str):
+        logger.print("[ERROR] substrate_names must be a string.")
+        return None
+
+    if not substrate_names.strip():
+        logger.print("[ERROR] substrate_names is empty.")
+        return None
+
+    if not isinstance(substrate_dir, (str, Path)):
+        logger.print("[ERROR] substrate_dir must be a str or Path.")
+        return None
+
+    substrate_dir = Path(substrate_dir)
+
+    if not substrate_dir.exists():
+        logger.print(f"[ERROR] substrate_dir does not exist: {substrate_dir}")
+        return None
+
+    if not substrate_dir.is_dir():
+        logger.print(f"[ERROR] substrate_dir is not a directory: {substrate_dir}")
+        return None
+
+    try:
+        substrate_name_list = [item.strip() for item in substrate_names.split(";")]
+        substrate_name_list = [item for item in substrate_name_list if item]
+
+        if len(substrate_name_list) == 0:
+            logger.print("[ERROR] No valid substrate name was found in substrate_names.")
+            return None
+
+        if len(set(substrate_name_list)) != len(substrate_name_list):
+            logger.print("[ERROR] Duplicate substrate names are not allowed.")
+            return None
+
+        sdf_path_list = sorted(substrate_dir.glob("*.sdf"))
+
+        substrate_to_sdf_path_list_dict: Dict[str, List[str]] = {}
+
+        for substrate_name in substrate_name_list:
+            matched_pairs: List[Tuple[int, str]] = []
+
+            pattern = re.compile(rf"^{re.escape(substrate_name)}_(\d+)$")
+
+            for sdf_path in sdf_path_list:
+                stem = sdf_path.stem
+
+                if stem == substrate_name:
+                    matched_pairs.append((0, str(sdf_path)))
+                    continue
+                m = pattern.match(stem)
+                if m:
+                    n = int(m.group(1))
+                    matched_pairs.append((n, str(sdf_path)))
+
+            if len(matched_pairs) == 0:
+                logger.print(f"[ERROR] No SDF files were found for substrate: {substrate_name}")
+                return None
+
+            matched_pairs.sort(key=lambda x: x[0])
+
+            matched_sdf_path_list = [path for _, path in matched_pairs]
+
+            substrate_to_sdf_path_list_dict[substrate_name] = matched_sdf_path_list
+
+        return substrate_name_list, substrate_to_sdf_path_list_dict
+
+    except Exception:
+        logger.print("[ERROR] Failed to group substrate SDF files.")
+        return None
+
+def compute_ligand_centroid(atom_info_list: List[Dict[str, Any]],logger: Logger) -> List[float] | None:
+
+    if not isinstance(atom_info_list, list) or len(atom_info_list) == 0:
+        logger.print("[ERROR] Invalid atom_info_list for centroid calculation.")
+        return None
+
+    try:
+        x_sum, y_sum, z_sum = 0.0, 0.0, 0.0
+
+        for item in atom_info_list:
+            x_sum += float(item["x"])
+            y_sum += float(item["y"])
+            z_sum += float(item["z"])
+
+        n = len(atom_info_list)
+
+        return [
+            x_sum / n,
+            y_sum / n,
+            z_sum / n,
+        ]
+
+    except Exception:
+        logger.print("[ERROR] Failed to compute ligand centroid.")
+        return None
