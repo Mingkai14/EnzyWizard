@@ -1,0 +1,48 @@
+# =========================
+# Python
+# =========================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# =========================
+# Virtual env / conda
+# =========================
+.env
+.venv
+env/
+venv/
+
+# =========================
+# Logs & temp
+# =========================
+*.log
+tmp/
+output/
+
+# =========================
+# IDE
+# =========================
+.vscode/
+.idea/
+
+# =========================
+# OS
+# =========================
+.DS_Store
+
+# =========================
+# Project specific
+# =========================
+
+# ignore all yml in root
+/*.yml
+
+# ignore examples content
+examples/*
+!examples/.gitkeep
+
+# ignore 
+LICENSE
+README.md
