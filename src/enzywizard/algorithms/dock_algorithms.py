@@ -4,16 +4,19 @@ from pathlib import Path
 from typing import Any, Dict, List
 import tempfile
 from itertools import product
+from rdkit import Chem
 
 from vina import Vina
 from ..utils.dock_utils import split_vina_pose_string, get_sdf_atom_info_from_mol, get_pdbqt_index_mapping, get_pose_for_substrate_atom_info
-from ..utils.IO_utils import load_sdf_mol_3d, write_protein_pdbqt,write_substrate_pdbqt_from_sdf, write_docked_complex_cif, write_docked_sdf_from_atom_info
+from ..utils.IO_utils import load_sdf_mol_3d, write_protein_pdbqt,write_substrate_pdbqt_from_sdf, write_docked_sdf_from_atom_info, write_docked_complex_from_mol_list
 from Bio.PDB.Structure import Structure
 from ..utils.logging_utils import Logger
 from ..algorithms.pocket_algorithms import compute_pockets
 from ..utils.structure_utils import get_structure_box
 from ..utils.dock_utils import get_substrate_sdf_path_group_dict, compute_ligand_centroid
+from ..utils.common_utils import get_optimized_filename
 
+VINA_SEED=202602
 
 def dock_multiple_ligands_with_vina(
     protein_pdbqt_path: str | Path,
@@ -152,13 +155,13 @@ def dock_multiple_ligands_with_vina(
         return None
 
     try:
-        v = Vina(cpu=cpu, verbosity=0)
+        v = Vina(cpu=cpu, verbosity=0, seed=VINA_SEED)
         v.set_receptor(rigid_pdbqt_filename=str(protein_pdbqt_path))
 
         v.set_ligand_from_file(ligand_pdbqt_str_list)
 
         v.compute_vina_maps(center=box_center, box_size=box_size)
-        v.dock(exhaustiveness=exhaustiveness)
+        v.dock(exhaustiveness=exhaustiveness, n_poses=max_pose_read_num)
 
     except Exception:
         logger.print("[ERROR] Vina docking failed.")
@@ -177,8 +180,12 @@ def dock_multiple_ligands_with_vina(
         logger.print("[ERROR] Failed to read Vina energies.")
         return None
 
-    if not pose_string and not energies:
-        logger.print(f"[WARNING] Vina docking output is empty for: {';'.join(substrate_name_list)} in: {box_center} {box_size}.")
+    if pose_string is None or energies is None:
+        logger.print(f"[ERROR] Vina docking output parsed wrongly: {','.join(substrate_name_list)} in: {box_center} {box_size}.")
+        return None
+
+    if len(str(pose_string).strip()) == 0 and len(energies) == 0:
+        logger.print(f"[WARNING] Vina docking output is empty for: {','.join(substrate_name_list)} in: {box_center} {box_size}.")
         return []
 
     if pose_string is None or energies is None:
@@ -186,6 +193,10 @@ def dock_multiple_ligands_with_vina(
         return None
 
     pose_string_list = split_vina_pose_string(pose_string,logger)
+
+    if pose_string_list is None:
+        logger.print("[ERROR] Docking pose was not available.")
+        return None
 
     if len(pose_string_list) == 0:
         logger.print("[ERROR] No docking pose was parsed from Vina output.")
@@ -215,7 +226,7 @@ def dock_multiple_ligands_with_vina(
         return None
 
     result_list: List[Dict[str, Any]] = []
-    joined_substrate_names = ";".join(substrate_name_list)
+    joined_substrate_names = ",".join(substrate_name_list)
 
     try:
         for pose_index in range(pose_num):
@@ -240,7 +251,7 @@ def dock_multiple_ligands_with_vina(
 
                 if parsed_substrate_info is None:
                     logger.print(
-                        f"[ERROR] Failed to parse docked atom coordinates for substrate {substrate_name} in pose index {pose_index}."
+                        f"[ERROR] Failed to parse docked atom coordinates for substrate {substrate_name} in pose index {pose_index + 1}."
                     )
                     return None
 
@@ -251,10 +262,14 @@ def dock_multiple_ligands_with_vina(
                 {
                     "substrate_names": joined_substrate_names,
                     "energy": current_energy,
+                    "pose_index": int(pose_index + 1),
+                    "box_center_list": [float(x) for x in box_center],
+                    "box_size_list": [float(x) for x in box_size],
                     "docked_substrate_info_list": docked_substrate_info_list,
                 }
             )
 
+        result_list.sort(key=lambda x: float(x["energy"]))
         return result_list
 
     except Exception:
@@ -329,13 +344,7 @@ def dock_multiple_substrates_from_structure(
 
     substrate_dir = Path(substrate_dir)
 
-    pocket_result_list = compute_pockets(
-        struct=struct,
-        logger=logger,
-        min_rad=min_rad,
-        max_rad=max_rad,
-        min_volume=min_volume,
-    )
+    pocket_result_list = compute_pockets(struct=struct,logger=logger,min_rad=min_rad,max_rad=max_rad,min_volume=min_volume)
     if pocket_result_list is None:
         logger.print("[ERROR] Failed to compute pockets.")
         return None
@@ -345,11 +354,7 @@ def dock_multiple_substrates_from_structure(
         logger.print("[ERROR] Failed to compute structure box.")
         return None
 
-    grouped_result = get_substrate_sdf_path_group_dict(
-        substrate_names=substrate_names,
-        substrate_dir=substrate_dir,
-        logger=logger,
-    )
+    grouped_result = get_substrate_sdf_path_group_dict(substrate_names=substrate_names,substrate_dir=substrate_dir,logger=logger)
     if grouped_result is None:
         logger.print("[ERROR] Failed to group substrate SDF files.")
         return None
@@ -378,12 +383,7 @@ def dock_multiple_substrates_from_structure(
         pocket_center_coord = pocket_result.get("pocket_center_coord", None)
         pocket_box_boundaries = pocket_result.get("pocket_box_boundaries", None)
 
-        if (
-            not isinstance(pocket_center_coord, list)
-            or len(pocket_center_coord) != 3
-            or not isinstance(pocket_box_boundaries, list)
-            or len(pocket_box_boundaries) != 3
-        ):
+        if not isinstance(pocket_center_coord, list) or len(pocket_center_coord) != 3 or not isinstance(pocket_box_boundaries, list) or len(pocket_box_boundaries) != 3:
             logger.print("[ERROR] Invalid pocket box information.")
             return None
 
@@ -397,12 +397,7 @@ def dock_multiple_substrates_from_structure(
     center_coord = structure_box_info.get("center_coord", None)
     box_boundaries = structure_box_info.get("box_boundaries", None)
 
-    if (
-        not isinstance(center_coord, list)
-        or len(center_coord) != 3
-        or not isinstance(box_boundaries, list)
-        or len(box_boundaries) != 3
-    ):
+    if not isinstance(center_coord, list) or len(center_coord) != 3 or not isinstance(box_boundaries, list) or len(box_boundaries) != 3:
         logger.print("[ERROR] Invalid structure box information.")
         return None
 
@@ -422,11 +417,7 @@ def dock_multiple_substrates_from_structure(
             tmp_dir_path = Path(tmp_dir)
 
             protein_pdbqt_path = tmp_dir_path / "protein.pdbqt"
-            ok = write_protein_pdbqt(
-                struct=struct,
-                pdbqt_path=protein_pdbqt_path,
-                logger=logger,
-            )
+            ok = write_protein_pdbqt(struct=struct,pdbqt_path=protein_pdbqt_path,logger=logger)
             if not ok:
                 logger.print("[ERROR] Failed to write protein PDBQT file.")
                 return None
@@ -443,11 +434,7 @@ def dock_multiple_substrates_from_structure(
 
                     pdbqt_path = tmp_dir_path / f"{sdf_path_obj.stem}.pdbqt"
 
-                    ok = write_substrate_pdbqt_from_sdf(
-                        sdf_path=sdf_path_obj,
-                        pdbqt_path=pdbqt_path,
-                        logger=logger,
-                    )
+                    ok = write_substrate_pdbqt_from_sdf(sdf_path=sdf_path_obj,pdbqt_path=pdbqt_path,logger=logger)
                     if not ok:
                         logger.print(f"[ERROR] Failed to write substrate PDBQT file: {sdf_path_obj}")
                         return None
@@ -506,11 +493,13 @@ def dock_multiple_substrates_from_structure(
                     result_list.extend(docking_result_list)
 
                     if len(result_list) >= max_docking_result_num:
+                        result_list.sort(key=lambda x: float(x["energy"]))
                         return result_list[:max_docking_result_num]
 
             if len(result_list) == 0:
                 logger.print("[WARNING] No valid docking results were found for any substrate combination and docking box.")
                 return []
+            result_list.sort(key=lambda x: float(x["energy"]))
             return result_list
 
     except Exception:
@@ -524,9 +513,16 @@ def save_docking_results_and_generate_dock_report(
     output_dir: str | Path,
     logger: Logger,
 ) -> Dict[str, Any] | None:
-
     if not isinstance(docking_result_list, list):
         logger.print("[ERROR] docking_result_list must be a list.")
+        return None
+
+    if struct is None:
+        logger.print("[ERROR] struct is None.")
+        return None
+
+    if not isinstance(protein_name, str) or not protein_name.strip():
+        logger.print("[ERROR] Invalid protein_name.")
         return None
 
     output_dir = Path(output_dir)
@@ -535,48 +531,80 @@ def save_docking_results_and_generate_dock_report(
     report_list: List[Dict[str, Any]] = []
 
     try:
-        for i, docking_result in enumerate(docking_result_list):
+        for docking_index, docking_result in enumerate(docking_result_list, start=1):
+            if not isinstance(docking_result, dict):
+                logger.print("[ERROR] Invalid docking_result item.")
+                return None
 
-            substrate_names = docking_result["substrate_names"]
-            energy = float(docking_result["energy"])
-            docked_list = docking_result["docked_substrate_info_list"]
+            substrate_names = str(docking_result.get("substrate_names", "")).strip()
+            energy = float(docking_result.get("energy", 0.0))
+            pose_index = int(docking_result.get("pose_index", 0))
+            box_center_list = docking_result.get("box_center_list", [])
+            box_size_list = docking_result.get("box_size_list", [])
+            docked_list = docking_result.get("docked_substrate_info_list", [])
 
-            complex_name = f"docked_{protein_name}_{substrate_names}"
+            if not substrate_names:
+                logger.print("[ERROR] Missing substrate_names in docking_result.")
+                return None
 
-            # ===== 写 CIF =====
-            cif_path = write_docked_complex_cif(
-                docking_result=docking_result,
-                struct=struct,
-                protein_name=protein_name,
-                output_dir=output_dir,
-                logger=logger,
-            )
-            if cif_path is None:
+            if pose_index <= 0:
+                logger.print("[ERROR] Invalid pose_index in docking_result.")
+                return None
+
+            if not isinstance(box_center_list, list) or len(box_center_list) != 3:
+                logger.print("[ERROR] Invalid box_center_list in docking_result.")
+                return None
+
+            if not isinstance(box_size_list, list) or len(box_size_list) != 3:
+                logger.print("[ERROR] Invalid box_size_list in docking_result.")
+                return None
+
+            if not isinstance(docked_list, list) or len(docked_list) == 0:
+                logger.print("[ERROR] Invalid docked_substrate_info_list in docking_result.")
                 return None
 
             ligand_report_list: List[Dict[str, Any]] = []
+            docked_mol_list: List[Chem.Mol] = []
 
-            # ===== 写每个 ligand SDF =====
-            for ligand in docked_list:
-
-                substrate_name = ligand["substrate_name"]
-                atom_info_list = ligand["atom_info_list"]
-                source_sdf_path = ligand.get("source_sdf_path", "")
-
-                mol = load_sdf_mol_3d(source_sdf_path, logger)
-                if mol is None:
+            for ligand_index, ligand in enumerate(docked_list, start=1):
+                if not isinstance(ligand, dict):
+                    logger.print("[ERROR] Invalid ligand docking result.")
                     return None
 
-                sdf_path = output_dir / f"docked_{substrate_name}.sdf"
+                substrate_name = str(ligand.get("substrate_name", "")).strip()
+                atom_info_list = ligand.get("atom_info_list", [])
+                source_sdf_path = str(ligand.get("source_sdf_path", "")).strip()
 
-                ok = write_docked_sdf_from_atom_info(
-                    original_mol_3d=mol,
+                if not substrate_name:
+                    logger.print("[ERROR] Missing substrate_name in ligand docking result.")
+                    return None
+
+                if not isinstance(atom_info_list, list) or len(atom_info_list) == 0:
+                    logger.print("[ERROR] Invalid atom_info_list in ligand docking result.")
+                    return None
+
+                if not source_sdf_path:
+                    logger.print("[ERROR] Missing source_sdf_path in ligand docking result.")
+                    return None
+
+                original_mol_3d = load_sdf_mol_3d(source_sdf_path, logger)
+                if original_mol_3d is None:
+                    return None
+
+                sdf_name = f"docked{docking_index}_{substrate_name}.sdf"
+                sdf_name = get_optimized_filename(sdf_name)
+                sdf_path = output_dir / sdf_name
+
+                docked_mol = write_docked_sdf_from_atom_info(
+                    original_mol_3d=original_mol_3d,
                     docked_atom_info_list=atom_info_list,
                     sdf_path=sdf_path,
                     logger=logger,
                 )
-                if not ok:
+                if docked_mol is None:
                     return None
+
+                docked_mol_list.append(docked_mol)
 
                 centroid = compute_ligand_centroid(atom_info_list, logger)
                 if centroid is None:
@@ -585,24 +613,46 @@ def save_docking_results_and_generate_dock_report(
                 ligand_report_list.append(
                     {
                         "substrate_name": substrate_name,
-                        "centroid": centroid,
+                        "docked_center_coord": [float(x) for x in centroid],
+                        # "docked_sdf_path": str(sdf_path),
                     }
                 )
+
+            complex_cif_path = write_docked_complex_from_mol_list(
+                struct=struct,
+                docked_mol_list=docked_mol_list,
+                protein_name=protein_name,
+                substrate_names=substrate_names,
+                docking_index=docking_index,
+                output_dir=output_dir,
+                logger=logger,
+            )
+            if complex_cif_path is None:
+                return None
+
+            complex_name = f"docked{docking_index}_{protein_name}_{substrate_names}"
+            complex_name=get_optimized_filename(complex_name)
+
 
             report_list.append(
                 {
                     "complex_name": complex_name,
+                    "docking_score": energy,
                     "substrate_names": substrate_names,
-                    "energy": energy,
-                    "ligands": ligand_report_list,
+                    "docking_box_center": [float(x) for x in box_center_list],
+                    "docking_box_size": [float(x) for x in box_size_list],
+                    "pose_index": int(pose_index),
+                    "docked_substrates": ligand_report_list,
                 }
             )
 
         return {
             "output_type": "enzywizard_dock",
-            "docked_substrates": report_list,
+            "docked_results": report_list,
         }
 
-    except Exception:
-        logger.print("[ERROR] Failed to save docking results.")
+    except Exception as e:
+        import traceback
+        logger.print(f"[ERROR] Failed to save docking results and generate dock report: {e}")
+        logger.print(traceback.format_exc())
         return None

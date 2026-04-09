@@ -7,7 +7,7 @@ from ..utils.IO_utils import file_exists,get_stem,check_filename_length,load_pro
 
 from ..algorithms.clean_algorithms import check_cleaned_structure
 from ..algorithms.dock_algorithms import dock_multiple_substrates_from_structure,save_docking_results_and_generate_dock_report
-
+from ..utils.common_utils import get_optimized_filename
 
 
 def run_dock_service(
@@ -91,7 +91,9 @@ def run_dock_service(
     if report is None:
         return False
 
-    json_report_path = output_dir / f"dock_report_{name}.json"
+    json_name = f"dock_report_{name}_{substrate_names}.json"
+    json_name = get_optimized_filename(json_name)
+    json_report_path = output_dir / json_name
     write_json_from_dict_inline_leaf_lists(report, json_report_path)
     logger.print(f"[INFO] Report JSON saved: {json_report_path}")
 

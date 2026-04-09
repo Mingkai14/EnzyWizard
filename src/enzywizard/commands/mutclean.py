@@ -6,7 +6,7 @@ def add_mutclean_parser(subparsers) -> None:
     parser = subparsers.add_parser("mutclean",help="Clean a pair of wild-type and mutant CIF/PDB structure files with a specified amino acid substitution.")
     parser.add_argument("-w","--wt_input_path", required=True, help="Path to wild-type protein structure file (CIF/PDB).")
     parser.add_argument("-m","--mut_input_path", required=True, help="Path to mutant protein structure file (CIF/PDB).")
-    parser.add_argument("-s","--mutation", required=True, help="Amino acid substitution(s) describing mutations, e.g., A123V or A123V/G456D.")
+    parser.add_argument("-s","--mutation", required=True, help="Amino acid substitution(s) describing mutations, e.g., A123V or A123V,G456D.")
     parser.add_argument("-o","--output_dir", required=True, help="Path to a directory for outputting cleaned CIF, PDB, and FASTA files and a JSON report.")
     parser.add_argument( "--add_H", type=lambda x: str(x).lower() in ["true", "1", "yes"], default=True, help="Whether to add hydrogens using OpenMM (True/False, default: True)." )
     parser.add_argument("--pH",type=float,default=7.0,help="pH value for hydrogen addition (default: 7.0).")
@@ -19,7 +19,7 @@ def run_mutclean(args: Namespace) -> None:
 '''
 -w --wt_input_path Required. Path to the wild-type protein structure file (CIF or PDB).
 -m --mut_input_path Required. Path to the mutant protein structure file (CIF or PDB).
--s --mutation Required. Amino acid substitution(s), e.g.: A123V A123V/G456D Multiple mutations should be separated by '/'.
+-s --mutation Required. Amino acid substitution(s), e.g.: A123V A123V,G456D Multiple mutations should be separated by ','.
 -o --output_dir Required. Output directory for cleaned structures, sequences, and report.
 --add_H Optional. Whether to add hydrogens using OpenMM (default: True).
 --pH Optional. pH value used for hydrogen addition (default: 7.0).

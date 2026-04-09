@@ -7,11 +7,11 @@ from Bio.PDB.DSSP import DSSP
 from ..utils.logging_utils import Logger
 import json
 import tempfile
-from ..utils.common_utils import convert_to_json_serializable, InlineJSONEncoder, wrap_leaf_lists_as_rawjson, get_clean_filename
+from ..utils.common_utils import convert_to_json_serializable, InlineJSONEncoder, wrap_leaf_lists_as_rawjson, get_clean_filename, get_optimized_filename
 from openmm.app import PDBFile,PDBxFile, Modeller
 from ..utils.structure_utils import get_single_chain,get_residues_by_chain,get_sequence
 from ..utils.conservation_utils import load_msa_sto,load_msa_aligned_fasta,load_msa_a3m, write_sto,write_aligned_fasta,write_a3m
-from typing import List, Dict,Any, Optional, Tuple
+from typing import List, Dict,Any, Tuple
 import subprocess
 from rdkit import Chem
 from ..utils.substrate_utils import is_valid_mol_3d
@@ -23,6 +23,7 @@ from Bio.PDB.Residue import Residue
 import copy
 import numpy as np
 
+
 def file_exists(path: str | Path) -> bool:
     p = Path(path)
     return p.exists() and p.is_file()
@@ -30,7 +31,7 @@ def file_exists(path: str | Path) -> bool:
 def get_stem(input_path: str | Path) -> str:
     return Path(input_path).stem
 
-MAXFILENAME=100
+MAXFILENAME=150
 
 def check_filename_length(name: str, logger: Logger) -> bool:
     if len(name) > MAXFILENAME:
@@ -505,19 +506,14 @@ def load_sdf_mol_3d(sdf_path: str | Path, logger: Logger) -> Chem.Mol | None:
         logger.print("[ERROR] Failed to read Mol(3D) from SDF file.")
         return None
 
-def write_docked_sdf_from_atom_info(
-    original_mol_3d: Chem.Mol,
-    docked_atom_info_list: List[Dict[str, Any]],
-    sdf_path: str | Path,
-    logger: Logger,
-) -> bool:
+def write_docked_sdf_from_atom_info(original_mol_3d: Chem.Mol,docked_atom_info_list: List[Dict[str, Any]],sdf_path: str | Path,logger: Logger) -> Chem.Mol | None:
     if original_mol_3d is None or original_mol_3d.GetNumConformers() <= 0:
         logger.print("[ERROR] Invalid original Mol(3D).")
-        return False
+        return None
 
     if not isinstance(docked_atom_info_list, list) or len(docked_atom_info_list) == 0:
         logger.print("[ERROR] Invalid docked_atom_info_list.")
-        return False
+        return None
 
     try:
         sdf_path = Path(sdf_path)
@@ -529,15 +525,19 @@ def write_docked_sdf_from_atom_info(
         kept_original_atom_index_list: List[int] = []
 
         for item in docked_atom_info_list:
+            if not isinstance(item, dict):
+                logger.print("[ERROR] Invalid atom item in docked_atom_info_list.")
+                return None
+
             original_atom_index = int(item.get("original_atom_index", 0))
 
             if original_atom_index <= 0 or original_atom_index > atom_num:
                 logger.print("[ERROR] Invalid original atom index in docked_atom_info_list.")
-                return False
+                return None
 
             if original_atom_index in used_original_atom_index_set:
                 logger.print("[ERROR] Duplicate original atom index in docked_atom_info_list.")
-                return False
+                return None
 
             used_original_atom_index_set.add(original_atom_index)
             kept_original_atom_index_list.append(original_atom_index)
@@ -553,12 +553,13 @@ def write_docked_sdf_from_atom_info(
 
         for old_index in kept_original_atom_index_list:
             old_atom = original_mol_3d.GetAtomWithIdx(old_index - 1)
+
             new_atom = Chem.Atom(old_atom.GetAtomicNum())
             new_atom.SetFormalCharge(old_atom.GetFormalCharge())
             new_atom.SetIsAromatic(old_atom.GetIsAromatic())
             new_atom.SetChiralTag(old_atom.GetChiralTag())
-            new_atom.SetNumExplicitHs(old_atom.GetNumExplicitHs())
             new_atom.SetNoImplicit(old_atom.GetNoImplicit())
+            new_atom.SetNumExplicitHs(old_atom.GetNumExplicitHs())
             new_atom.SetNumRadicalElectrons(old_atom.GetNumRadicalElectrons())
 
             rw_mol.AddAtom(new_atom)
@@ -583,51 +584,64 @@ def write_docked_sdf_from_atom_info(
             new_atom_index = old_to_new_index_dict[original_atom_index]
             new_conf.SetAtomPosition(new_atom_index, (x, y, z))
 
-            original_atom_name = str(item.get("original_atom_name", "")).upper()
+            original_atom_name = str(item.get("original_atom_name", "")).upper().strip()
             new_atom = rw_mol.GetAtomWithIdx(new_atom_index)
 
             if original_atom_name and new_atom.GetSymbol().upper() != original_atom_name:
                 logger.print("[ERROR] Atom name mismatch when writing docked SDF.")
-                return False
+                return None
 
         mol = rw_mol.GetMol()
         mol.RemoveAllConformers()
         mol.AddConformer(new_conf, assignId=True)
 
+        try:
+            Chem.SanitizeMol(mol)
+        except Exception:
+            logger.print("[ERROR] RDKit sanitize failed for docked ligand Mol.")
+            return None
+
         writer = Chem.SDWriter(str(sdf_path))
-        conf_id = new_conf.GetId()
-        writer.write(mol, confId=conf_id)
+        writer.write(mol)
         writer.close()
 
         if not sdf_path.exists() or sdf_path.stat().st_size <= 0:
             logger.print("[ERROR] Failed to save docked SDF file.")
-            return False
+            return None
 
-        return True
+        return mol
 
-    except Exception as e:
-        import traceback
-        logger.print(f"[ERROR] Failed to write docked atom information to SDF file: {e}")
-        logger.print(traceback.format_exc())
-        return False
+    except Exception:
+        logger.print(f"[ERROR] Failed to write docked atom information to SDF file")
+        return None
 
-def write_docked_complex_cif(
-    docking_result: Dict[str, Any],
+def write_docked_complex_from_mol_list(
     struct: Structure,
+    docked_mol_list: List[Chem.Mol],
     protein_name: str,
+    substrate_names: str,
+    docking_index: int,
     output_dir: str | Path,
     logger: Logger,
 ) -> str | None:
-    if not isinstance(docking_result, dict):
-        logger.print("[ERROR] Invalid docking_result.")
-        return None
-
     if struct is None:
         logger.print("[ERROR] struct is None.")
         return None
 
+    if not isinstance(docked_mol_list, list) or len(docked_mol_list) == 0:
+        logger.print("[ERROR] Invalid docked_mol_list.")
+        return None
+
     if not isinstance(protein_name, str) or not protein_name.strip():
         logger.print("[ERROR] Invalid protein_name.")
+        return None
+
+    if not isinstance(substrate_names, str) or not substrate_names.strip():
+        logger.print("[ERROR] Invalid substrate_names.")
+        return None
+
+    if not isinstance(docking_index, int) or docking_index <= 0:
+        logger.print("[ERROR] Invalid docking_index.")
         return None
 
     if not isinstance(output_dir, (str, Path)):
@@ -635,17 +649,6 @@ def write_docked_complex_cif(
         return None
 
     try:
-        substrate_names = docking_result.get("substrate_names", "")
-        docked_list = docking_result.get("docked_substrate_info_list", [])
-
-        if not isinstance(substrate_names, str) or not substrate_names.strip():
-            logger.print("[ERROR] Invalid docking_result['substrate_names'].")
-            return None
-
-        if not isinstance(docked_list, list) or len(docked_list) == 0:
-            logger.print("[ERROR] Invalid docking_result['docked_substrate_info_list'].")
-            return None
-
         protein_chain = get_single_chain(struct, logger)
         if protein_chain is None:
             return None
@@ -661,8 +664,10 @@ def write_docked_complex_cif(
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        complex_name = f"docked_{protein_name}_{substrate_names}"
+        complex_name = f"docked{docking_index}_{protein_name}_{substrate_names}"
+        complex_name = get_optimized_filename(complex_name)
         cif_path = output_dir / f"{complex_name}.cif"
+        pdb_path = output_dir / f"{complex_name}.pdb"
 
         builder = StructureBuilder.StructureBuilder()
         builder.init_structure("complex")
@@ -676,81 +681,73 @@ def write_docked_complex_cif(
         for residue in protein_chain.get_residues():
             new_protein_chain.add(copy.deepcopy(residue))
 
+        # === 计算 protein 当前最大 atom serial，ligand 从后面继续编号 ===
+        max_serial = 0
+        for atom in new_protein_chain.get_atoms():
+            try:
+                serial = int(atom.serial_number)
+                if serial > max_serial:
+                    max_serial = serial
+            except Exception:
+                continue
+
+        current_serial = max_serial + 1
+
         ligand_chain = Chain("L")
         new_model.add(ligand_chain)
 
-        for i, ligand_info in enumerate(docked_list):
-            atom_info_list = ligand_info.get("atom_info_list", [])
-
-            if not isinstance(atom_info_list, list) or len(atom_info_list) == 0:
-                logger.print(f"[ERROR] Invalid atom_info_list for ligand index {i}.")
+        for ligand_i, mol in enumerate(docked_mol_list, start=1):
+            if mol is None or mol.GetNumConformers() <= 0:
+                logger.print(f"[ERROR] Invalid docked Mol for ligand index {ligand_i}.")
                 return None
 
-            ligand_res_id = ("H", ligand_resseq_start + i, " ")
+            conf = mol.GetConformer()
+            ligand_res_id = ("H", ligand_resseq_start + ligand_i - 1, " ")
             ligand_residue = Residue(ligand_res_id, "LIG", " ")
 
-            for atom_j, atom_item in enumerate(atom_info_list, start=1):
-                if not isinstance(atom_item, dict):
-                    logger.print(f"[ERROR] Invalid atom item for ligand index {i}.")
-                    return None
+            element_count_dict: Dict[str, int] = {}
 
-                original_atom_name = str(atom_item.get("original_atom_name", "")).strip().upper()
-                if not original_atom_name:
-                    logger.print(f"[ERROR] Missing original_atom_name for ligand index {i}.")
-                    return None
+            for atom in mol.GetAtoms():
+                symbol = atom.GetSymbol().upper().strip()
+                if not symbol:
+                    symbol = "X"
 
-                try:
-                    x = float(atom_item["x"])
-                    y = float(atom_item["y"])
-                    z = float(atom_item["z"])
-                except Exception:
-                    logger.print(
-                        f"[ERROR] Invalid atom coordinates for ligand index {i}, atom {original_atom_name}."
-                    )
-                    return None
+                element_count_dict[symbol] = element_count_dict.get(symbol, 0) + 1
+                atom_name = f"{symbol}{element_count_dict[symbol]}"
+                atom_name = atom_name[:4]
+                fullname = atom_name.rjust(4)
 
-                original_atom_index = atom_item.get("original_atom_index", atom_j)
-                try:
-                    serial_number = int(original_atom_index)
-                except Exception:
-                    serial_number = atom_j
+                pos = conf.GetAtomPosition(atom.GetIdx())
+                serial_number = current_serial
+                current_serial += 1
 
-                # residue 内 atom name 必须唯一
-                unique_atom_name = f"A{atom_j}"
-                if len(unique_atom_name) > 4:
-                    unique_atom_name = unique_atom_name[:4]
-
-                # element 尽量从 original_atom_name 推断
-                element = original_atom_name[:2].strip().capitalize()
-                if len(element) == 0:
-                    element = "X"
-                elif len(element) == 2 and element[1].isdigit():
-                    element = element[0]
-                elif len(element) == 2 and not element[1].islower():
-                    element = element[0]
-
-                atom = Atom(
-                    name=unique_atom_name,
-                    coord=np.array([x, y, z], dtype=float),
+                pdb_atom = Atom(
+                    name=atom_name,
+                    coord=np.array([float(pos.x), float(pos.y), float(pos.z)], dtype=float),
                     bfactor=1.0,
                     occupancy=1.0,
                     altloc=" ",
-                    fullname=unique_atom_name.rjust(4),
+                    fullname=fullname,
                     serial_number=serial_number,
-                    element=element,
+                    element=symbol.capitalize(),
                 )
-                ligand_residue.add(atom)
+                ligand_residue.add(pdb_atom)
 
             ligand_chain.add(ligand_residue)
 
         write_cif(new_struct, cif_path)
+        write_pdb(new_struct, pdb_path)
 
         if not cif_path.exists() or cif_path.stat().st_size == 0:
             logger.print("[ERROR] Failed to write complex CIF.")
             return None
 
+        if not pdb_path.exists() or pdb_path.stat().st_size == 0:
+            logger.print("[ERROR] Failed to write complex PDB.")
+            return None
+
         return str(cif_path)
 
     except Exception:
-        logger.print(f"[ERROR] Failed to build docked complex CIF:")
+        logger.print(f"[ERROR] Failed to build docked complex CIF/PDB from Mol list")
         return None

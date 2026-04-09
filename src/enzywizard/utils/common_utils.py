@@ -141,4 +141,21 @@ def wrap_leaf_lists_as_rawjson(obj: Any) -> Any:
 
 def get_clean_filename(name: str) -> str:
     name = re.sub(r"[^\w\-\.]", "_", name)
-    return name[:50]
+    return name[:150]
+
+
+def get_optimized_filename(name: str) -> str:
+    if not isinstance(name, str):
+        return ""
+
+    name = name.strip()
+
+    name = re.sub(r"[,;:=+\s]+", "_", name)
+
+    name = re.sub(r"[^\w\-\.]", "_", name)
+
+    name = re.sub(r"_+", "_", name)
+
+    name = name.strip("_.")
+
+    return name[:150]

@@ -8,7 +8,7 @@ def check_amino_acid_substitution(mutation: str,wt_length: int,mut_length: int,l
         logger.print("[ERROR] Empty amino acid substitution.")
         return False
 
-    muts = mutation.split("/")
+    muts = mutation.split(",")
     seen_positions = set()
     for single_mut in muts:
         single_mut = single_mut.strip()
@@ -48,7 +48,7 @@ def check_amino_acid_substitution(mutation: str,wt_length: int,mut_length: int,l
 
 def get_muts_from_aas(mutation: str)->List[Tuple[str, int, str]]:
     muts_list: List[Tuple[str, int, str]]=[]
-    muts = mutation.split("/")
+    muts = mutation.split(",")
 
     for single_mut in muts:
         single_mut = single_mut.strip()

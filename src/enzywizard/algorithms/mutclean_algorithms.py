@@ -55,7 +55,7 @@ def get_cleaned_amino_acid_substitution(
 
         cleaned_muts.append(f"{wt_aa}{wt_new_resseq}{mut_aa}")
 
-    cleaned_mutation = "/".join(cleaned_muts)
+    cleaned_mutation = ",".join(cleaned_muts)
     return cleaned_mutation
 
 
