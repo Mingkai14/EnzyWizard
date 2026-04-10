@@ -751,3 +751,36 @@ def write_docked_complex_from_mol_list(
     except Exception:
         logger.print(f"[ERROR] Failed to build docked complex CIF/PDB from Mol list")
         return None
+
+def load_openmm_modeller(path: str | Path, logger) -> Modeller | None:
+    if not isinstance(path, (str, Path)):
+        logger.print("[ERROR] path must be a str or Path.")
+        return None
+
+    try:
+        p = Path(path)
+    except Exception:
+        logger.print("[ERROR] Failed to parse path.")
+        return None
+
+    if not p.exists() or p.stat().st_size <= 0:
+        logger.print(f"[ERROR] Invalid input structure file: {p}")
+        return None
+
+    try:
+        suffix = p.suffix.lower()
+
+        if suffix in {".cif", ".mmcif"}:
+            obj = PDBxFile(str(p))
+        elif suffix == ".pdb":
+            obj = PDBFile(str(p))
+        else:
+            logger.print(f"[ERROR] Unsupported structure format: {p}")
+            return None
+
+        return Modeller(obj.topology, obj.positions)
+
+    except Exception:
+        logger.print(f"[ERROR] Failed to load OpenMM Modeller from {str(p)}")
+        return None
+

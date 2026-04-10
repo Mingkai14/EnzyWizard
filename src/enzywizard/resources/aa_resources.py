@@ -30,6 +30,70 @@ for idx, (_, aa_tuple) in enumerate(AA_8CLASSES):
 DSSP_8STATE = ["-", "H", "B", "E", "G", "I", "T", "S"]
 DSSP_8STATE_INDEX = {s: i for i, s in enumerate(DSSP_8STATE)}
 
+HBOND_SIDE_ACCEPTORS = {
+    "ASN": ["OD1"],
+    "ASP": ["OD1", "OD2"],
+    "GLN": ["OE1"],
+    "GLU": ["OE1", "OE2"],
+    "MET": ["SD"],
+    "SER": ["OG"],
+    "THR": ["OG1"],
+    "TYR": ["OH"],
+    "HIS": ["ND1"],
+}
+
+HBOND_SIDE_DONOR_HEAVY = {
+    "ARG": ["NE", "NH1", "NH2"],
+    "ASN": ["ND2"],
+    "CYS": ["SG"],
+    "GLN": ["NE2"],
+    "HIS": ["ND1", "NE2"],
+    "LYS": ["NZ"],
+    "SER": ["OG"],
+    "THR": ["OG1"],
+    "TRP": ["NE1"],
+    "TYR": ["OH"],
+}
+
+PROTEIN_IONIC_ANION_RESIDUES = {"ASP", "GLU"}
+PROTEIN_IONIC_CATION_RESIDUES = {"HIS", "LYS", "ARG"}
+PROTEIN_IONIC_RESIDUES = PROTEIN_IONIC_ANION_RESIDUES | PROTEIN_IONIC_CATION_RESIDUES
+
+VDW_RADIUS_A= {
+    "H": 1.20,
+    "C": 1.70,
+    "N": 1.55,
+    "O": 1.52,
+    "S": 1.80,
+}
+
+PROTEIN_PIPI_AROMATIC_RESIDUES = {"PHE", "TYR", "TRP", "HIS"}
+
+PROTEIN_PIPI_RING_ATOMS = {
+    "PHE": {
+        "AROM": ["CG", "CD1", "CD2", "CE1", "CE2", "CZ"],
+    },
+    "TYR": {
+        "AROM": ["CG", "CD1", "CD2", "CE1", "CE2", "CZ"],
+    },
+    "HIS": {
+        "IMID": ["CG", "ND1", "CD2", "CE1", "NE2"],
+    },
+    "TRP": {
+        "IND5": ["CG", "CD1", "NE1", "CE2", "CD2"],
+        "IND6": ["CD2", "CE2", "CE3", "CZ3", "CH2", "CZ2"],
+    },
+}
+
+PROTEIN_PICATION_CATION_RESIDUES = {"ARG", "LYS"}
+PROTEIN_PICATION_LYS_ATOM = "NZ"
+PROTEIN_PICATION_ARG_CENTER_ATOMS = ["NE", "NH1", "NH2"]
+PROTEIN_PICATION_ARG_PLANE_ATOMS = ["NE", "NH1", "NH2", "CZ"]
+
+DISULFIDE_RESNAME = "CYS"
+
+DISULFIDE_ATOM_NAME = "SG"
+
 # reference: https://www.wwpdb.org/data/ccd
 modres={
 '0CS':'ALA',                    ##  0CS ALA  3-[(S)-HYDROPEROXYSULFINYL]-L-ALANINE

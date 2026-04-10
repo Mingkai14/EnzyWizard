@@ -3,9 +3,12 @@ from __future__ import annotations
 from Bio.PDB.Model import Model
 from Bio.PDB.Chain import Chain
 
-from Bio.PDB import MMCIFParser, PDBParser, Structure, Atom
+from Bio.PDB import Atom
+from Bio.PDB.Structure import Structure
 from ..utils.logging_utils import Logger
 from Bio.Data.IUPACData import protein_letters_3to1
+from openmm.app import Modeller
+from openmm.app.element import hydrogen as ELEMENT_H
 
 from typing import List, Tuple, Dict, Any
 import numpy as np
@@ -125,3 +128,66 @@ def get_structure_box(struct: Structure, logger: Logger) -> Dict[str, Any] | Non
     except Exception:
         logger.print("[ERROR] Failed to compute box space for Structure.")
         return None
+
+
+def structure_has_hydrogen(struct: Structure, logger) -> bool:
+    if not isinstance(struct, Structure):
+        logger.print("[ERROR] struct must be a Bio.PDB Structure.")
+        return False
+
+    try:
+        for atom in struct.get_atoms():
+            element = getattr(atom, "element", None)
+
+            if element == "H" or (element is None and atom.get_name().startswith("H")):
+                return True
+
+        return False
+
+    except Exception:
+        logger.print(f"[ERROR] Failed to inspect hydrogens in structure")
+        return False
+
+def structure_has_too_few_hydrogens(struct: Structure,logger,min_hydrogen_count: int = 10,min_hydrogen_ratio: float = 0.05) -> bool:
+    if not isinstance(struct, Structure):
+        logger.print("[ERROR] struct must be a Bio.PDB Structure.")
+        return True
+
+    if not isinstance(min_hydrogen_count, int) or min_hydrogen_count < 0:
+        logger.print("[ERROR] min_hydrogen_count must be a non-negative integer.")
+        return True
+
+    if not isinstance(min_hydrogen_ratio, (int, float)) or float(min_hydrogen_ratio) < 0.0:
+        logger.print("[ERROR] min_hydrogen_ratio must be a non-negative number.")
+        return True
+
+    try:
+        atom_count = 0
+        h_count = 0
+
+        for atom in struct.get_atoms():
+            atom_count += 1
+
+            element = getattr(atom, "element", None)
+            if element == "H" or (element is None and atom.get_name().startswith("H")):
+                h_count += 1
+
+        if atom_count <= 0:
+            logger.print("[ERROR] Structure contains no atoms.")
+            return True
+
+        h_ratio = float(h_count) / float(atom_count)
+
+        if h_count < min_hydrogen_count:
+            return True
+
+        if h_ratio < float(min_hydrogen_ratio):
+            return True
+
+        return False
+
+    except Exception:
+        logger.print(f"[ERROR] Failed to count hydrogens in structure")
+        return True
+
+
