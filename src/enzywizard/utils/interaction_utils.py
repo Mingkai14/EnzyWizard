@@ -69,7 +69,9 @@ def filter_valid_docked_substrates(
             logger=logger,
             heavy_atom_distance_cutoff_A=float(docked_heavy_atom_distance_cutoff_A),
         ):
-            logger.print(f"[WARNING] Substrate '{substrate_name}' is not spatially docked to protein.")
+            logger.print(f"[WARNING] Substrate '{substrate_name}' is not spatially docked to protein.Skip.")
+            continue
+
 
         valid_substrate_name_list.append(substrate_name)
         valid_ligand_mol_list.append(lig_mol)

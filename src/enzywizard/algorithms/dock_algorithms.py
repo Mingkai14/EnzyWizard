@@ -650,7 +650,7 @@ def save_docking_results_and_generate_dock_report(
             ligand_report_list.append(
                 {
                     "substrate_name": substrate_name,
-                    "protomer_name": protomer_name,
+                    "conformation_name": protomer_name,
                     "docked_center_coord": [float(x) for x in centroid],
                 }
             )

@@ -1284,6 +1284,33 @@ def calculate_all_interaction_network(
             }
         )
 
+    def interaction_sort_key(item: Dict[str, Any]):
+        node1 = item.get("node1", {})
+        node2 = item.get("node2", {})
+
+        type1 = node1.get("node_type")
+        type2 = node2.get("node_type")
+
+        is_intra = (type1 == "amino_acid" and type2 == "amino_acid")
+
+        aa_index = None
+        if type1 == "amino_acid":
+            aa_index = node1.get("aa_index")
+        elif type2 == "amino_acid":
+            aa_index = node2.get("aa_index")
+
+        try:
+            aa_index = int(aa_index)
+        except Exception:
+            aa_index = 999999
+
+        return (
+            0 if is_intra else 1,
+            aa_index,
+        )
+
+    merged_result.sort(key=interaction_sort_key)
+
     return merged_result
 
 
@@ -1385,7 +1412,7 @@ def summarize_interaction_counts(interaction_list: List[Dict[str, Any]],logger) 
     return result
 
 
-def generate_interaction_report(interaction_list: List[Dict[str, Any]], interaction_statistics: Dict[str, Dict[str, int]]) -> dict:
+def generate_interaction_report(interaction_list: List[Dict[str, Any]], interaction_statistics: Dict[str, Dict[str, Dict[str, int]]]) -> dict:
 
     return {
         "output_type": "enzywizard_interaction",
