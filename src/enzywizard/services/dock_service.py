@@ -15,9 +15,8 @@ def run_dock_service(
     substrate_names: str,
     substrate_dir: str | Path,
     output_dir: str | Path,
-    max_docking_result_num: int = 3,
     max_docking_attempt_num: int = 20,
-    max_pose_read_num: int = 1,
+    early_stop: bool = False,
     exhaustiveness: int = 16,
     cpu: int = 0,
     min_rad: float = 1.8,
@@ -66,9 +65,8 @@ def run_dock_service(
         substrate_names=substrate_names,
         substrate_dir=substrate_dir,
         logger=logger,
-        max_docking_result_num=max_docking_result_num,
         max_docking_attempt_num=max_docking_attempt_num,
-        max_pose_read_num=max_pose_read_num,
+        early_stop=early_stop,
         exhaustiveness=exhaustiveness,
         cpu=cpu,
         min_rad=min_rad,
@@ -78,7 +76,7 @@ def run_dock_service(
     if docking_result_list is None:
         return False
 
-    logger.print(f"[INFO] Docking finished with {len(docking_result_list)} result(s)")
+    logger.print(f"[INFO] Docking finished")
 
     logger.print("[INFO] Saving docking results and generating report")
     report = save_docking_results_and_generate_dock_report(

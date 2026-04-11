@@ -3,6 +3,10 @@ from rdkit import Chem
 from openmm.app import Modeller
 
 from typing import Tuple, List, Any, Dict, Set
+from Bio.PDB.Structure import Structure
+from Bio.Data.IUPACData import protein_letters_3to1
+from ..utils.structure_utils import get_single_chain, get_residues_by_chain
+
 from ..utils.interaction_utils import build_openmm_tables, collect_protein_hbond_sites, collect_substrate_hbond_sites, find_hbond_hits_from_donors_to_acceptors, edge_key_pair, is_protein_substrate_docked, build_substrate_tables, edge_sort_key
 from ..utils.interaction_utils import collect_protein_ionic_centers,collect_substrate_ionic_centers, find_ionic_hits_between_centers
 from ..utils.interaction_utils import collect_substrate_vdw_atoms,collect_protein_vdw_atoms,find_vdw_hits_between_atom_entries
@@ -1076,3 +1080,315 @@ def calculate_disulfide_bond_network(
 
     result_edge_list.sort(key=edge_sort_key)
     return result_edge_list
+
+def calculate_all_interaction_network(
+    modeller: Modeller,
+    ligand_mol_list: List[Chem.Mol],
+    substrate_name_list: List[str],
+    struct: Structure,
+    logger,
+    bonded_h_min_distance_A: float = 0.8,
+    bonded_h_max_distance_A: float = 1.3,
+    da_max_distance_A: float = 3.9,
+    ha_max_distance_A: float = 2.5,
+    dha_min_angle_deg: float = 90.0,
+    ionic_distance_cutoff_A: float = 4.0,
+    mu: float = 0.01,
+    ring_center_distance_cutoff_A: float = 6.5,
+    ring_cation_distance_cutoff_A: float = 5.0,
+    ring_cation_angle_cutoff_deg: float = 45.0,
+    ss_max_distance_A: float = 2.5,
+    docked_heavy_atom_distance_cutoff_A: float = 6.5,
+    min_residue_index_gap: int = 3,
+) -> List[Dict[str, Any]] | None:
+    if not isinstance(modeller, Modeller):
+        logger.print("[ERROR] modeller must be an OpenMM Modeller.")
+        return None
+
+    if not isinstance(ligand_mol_list, list):
+        logger.print("[ERROR] ligand_mol_list must be a list.")
+        return None
+
+    if not isinstance(substrate_name_list, list):
+        logger.print("[ERROR] substrate_name_list must be a list.")
+        return None
+
+    if len(ligand_mol_list) != len(substrate_name_list):
+        logger.print("[ERROR] ligand_mol_list and substrate_name_list must have the same length.")
+        return None
+
+    if struct is None:
+        logger.print("[ERROR] struct is None.")
+        return None
+
+    try:
+        chain = get_single_chain(struct, logger)
+        if chain is None:
+            logger.print("[ERROR] Failed to get single chain from structure.")
+            return None
+
+        residue_info_list = get_residues_by_chain(chain, logger)
+        if residue_info_list is None:
+            logger.print("[ERROR] Failed to get residues from structure chain.")
+            return None
+    except Exception as e:
+        logger.print(f"[ERROR] Failed to extract residue information from structure: {e}")
+        return None
+
+    aa_index_to_info: Dict[Any, Dict[str, Any]] = {}
+    for item in residue_info_list:
+        residue_id_tuple, resname, _ = item
+        _, resseq, _ = residue_id_tuple
+
+        aa_name = protein_letters_3to1.get(str(resname).capitalize(), "")
+        aa_index_to_info[resseq] = {
+            "aa_index": resseq,
+            "aa_name": aa_name,
+            "node_type": "amino_acid",
+        }
+
+    substrate_index_to_info: Dict[int, Dict[str, Any]] = {}
+    for i, substrate_name in enumerate(substrate_name_list, start=1):
+        substrate_index_to_info[i] = {
+            "substrate_index": i,
+            "substrate_name": str(substrate_name),
+            "node_type": "substrate",
+        }
+
+    def build_node(node_index: Any, node_type: str) -> Dict[str, Any] | None:
+        if node_type == "amino_acid":
+            info = aa_index_to_info.get(node_index)
+            if info is None:
+                logger.print(f"[ERROR] Amino acid index {node_index} not found in structure residue mapping.")
+                return None
+            return dict(info)
+
+        if node_type == "substrate":
+            info = substrate_index_to_info.get(int(node_index))
+            if info is None:
+                logger.print(f"[ERROR] Substrate index {node_index} not found in substrate mapping.")
+                return None
+            return dict(info)
+
+        logger.print(f"[ERROR] Unsupported node_type: {node_type}")
+        return None
+
+    all_raw_edges: List[Dict[str, Any]] = []
+
+    hbond_edges = calculate_hydrogen_bond_network(
+        modeller=modeller,
+        ligand_mol_list=ligand_mol_list,
+        logger=logger,
+        bonded_h_min_distance_A=bonded_h_min_distance_A,
+        bonded_h_max_distance_A=bonded_h_max_distance_A,
+        da_max_distance_A=da_max_distance_A,
+        ha_max_distance_A=ha_max_distance_A,
+        dha_min_angle_deg=dha_min_angle_deg,
+        docked_heavy_atom_distance_cutoff_A=docked_heavy_atom_distance_cutoff_A,
+    )
+    if hbond_edges is None:
+        logger.print("[ERROR] Failed to calculate hydrogen bond network.")
+        return None
+    all_raw_edges.extend(hbond_edges)
+
+    ionic_edges = calculate_ionic_bond_network(
+        modeller=modeller,
+        ligand_mol_list=ligand_mol_list,
+        logger=logger,
+        ionic_distance_cutoff_A=ionic_distance_cutoff_A,
+        docked_heavy_atom_distance_cutoff_A=docked_heavy_atom_distance_cutoff_A,
+        min_residue_index_gap=min_residue_index_gap,
+    )
+    if ionic_edges is None:
+        logger.print("[ERROR] Failed to calculate ionic bond network.")
+        return None
+    all_raw_edges.extend(ionic_edges)
+
+    vdw_edges = calculate_van_der_waals_network(
+        modeller=modeller,
+        ligand_mol_list=ligand_mol_list,
+        logger=logger,
+        mu=mu,
+        docked_heavy_atom_distance_cutoff_A=docked_heavy_atom_distance_cutoff_A,
+        min_residue_index_gap=min_residue_index_gap,
+    )
+    if vdw_edges is None:
+        logger.print("[ERROR] Failed to calculate van der Waals network.")
+        return None
+    all_raw_edges.extend(vdw_edges)
+
+    pipi_edges = calculate_pipi_stacking_network(
+        modeller=modeller,
+        ligand_mol_list=ligand_mol_list,
+        logger=logger,
+        ring_center_distance_cutoff_A=ring_center_distance_cutoff_A,
+        min_residue_index_gap=min_residue_index_gap,
+        docked_heavy_atom_distance_cutoff_A=docked_heavy_atom_distance_cutoff_A,
+    )
+    if pipi_edges is None:
+        logger.print("[ERROR] Failed to calculate pi-pi stacking network.")
+        return None
+    all_raw_edges.extend(pipi_edges)
+
+    pication_edges = calculate_pication_network(
+        modeller=modeller,
+        ligand_mol_list=ligand_mol_list,
+        logger=logger,
+        ring_cation_distance_cutoff_A=ring_cation_distance_cutoff_A,
+        ring_cation_angle_cutoff_deg=ring_cation_angle_cutoff_deg,
+        min_residue_index_gap=min_residue_index_gap,
+        docked_heavy_atom_distance_cutoff_A=docked_heavy_atom_distance_cutoff_A,
+    )
+    if pication_edges is None:
+        logger.print("[ERROR] Failed to calculate pi-cation network.")
+        return None
+    all_raw_edges.extend(pication_edges)
+
+    ssbond_edges = calculate_disulfide_bond_network(
+        modeller=modeller,
+        logger=logger,
+        ss_max_distance_A=ss_max_distance_A,
+        min_residue_index_gap=min_residue_index_gap,
+    )
+    if ssbond_edges is None:
+        logger.print("[ERROR] Failed to calculate disulfide bond network.")
+        return None
+    all_raw_edges.extend(ssbond_edges)
+
+    merged_result: List[Dict[str, Any]] = []
+
+    for edge in all_raw_edges:
+        if not isinstance(edge, dict):
+            logger.print("[ERROR] Invalid edge item in raw interaction result.")
+            return None
+
+        node1_index = edge.get("node1_index")
+        node1_type = edge.get("node1_type")
+        node2_index = edge.get("node2_index")
+        node2_type = edge.get("node2_type")
+        interaction_type = edge.get("interaction_type")
+
+        node1_info = build_node(node1_index, node1_type)
+        if node1_info is None:
+            return None
+
+        node2_info = build_node(node2_index, node2_type)
+        if node2_info is None:
+            return None
+
+        merged_result.append(
+            {
+                "interaction": str(interaction_type),
+                "node1": node1_info,
+                "node2": node2_info,
+            }
+        )
+
+    return merged_result
+
+
+def summarize_interaction_counts(interaction_list: List[Dict[str, Any]],logger) -> Dict[str, Any] | None:
+
+    if not isinstance(interaction_list, list):
+        logger.print("[ERROR] interaction_list must be a list.")
+        return None
+
+    interaction_types = ["HBOND", "IONIC", "VDW", "PIPISTACK", "PICATION", "SSBOND"]
+    scope_types = ["overall", "intra_protein", "protein_substrate"]
+
+    result: Dict[str, Dict[str, Dict[str, int]]] = {
+        scope: {
+            "count": {interaction_type: 0 for interaction_type in interaction_types},
+            "unique_pair_count": {interaction_type: 0 for interaction_type in interaction_types},
+        }
+        for scope in scope_types
+    }
+
+    unique_pair_sets: Dict[str, Dict[str, Set[Tuple[Tuple[str, Any], Tuple[str, Any]]]]] = {
+        scope: {
+            interaction_type: set() for interaction_type in interaction_types
+        }
+        for scope in scope_types
+    }
+
+    def get_node_id(node: Dict[str, Any]) -> Tuple[str, Any]:
+        node_type = node.get("node_type")
+
+        if node_type == "amino_acid":
+            return ("amino_acid", node.get("aa_index"))
+
+        if node_type == "substrate":
+            return ("substrate", node.get("substrate_index"))
+
+        return ("unknown", None)
+
+    def get_scope(node1: Dict[str, Any], node2: Dict[str, Any]) -> str | None:
+        node1_type = node1.get("node_type")
+        node2_type = node2.get("node_type")
+
+        if node1_type == "amino_acid" and node2_type == "amino_acid":
+            return "intra_protein"
+
+        if (
+            (node1_type == "amino_acid" and node2_type == "substrate")
+            or
+            (node1_type == "substrate" and node2_type == "amino_acid")
+        ):
+            return "protein_substrate"
+
+        return None
+
+    for item in interaction_list:
+        if not isinstance(item, dict):
+            logger.print("[ERROR] Invalid item in interaction_list.")
+            return None
+
+        interaction = item.get("interaction")
+        node1 = item.get("node1")
+        node2 = item.get("node2")
+
+        if interaction not in interaction_types:
+            continue
+
+        if not isinstance(node1, dict) or not isinstance(node2, dict):
+            logger.print("[ERROR] Invalid node format in interaction item.")
+            return None
+
+        scope = get_scope(node1, node2)
+        if scope is None:
+            logger.print("[ERROR] Unsupported node type combination in interaction item.")
+            return None
+
+        result["overall"]["count"][interaction] += 1
+        result[scope]["count"][interaction] += 1
+
+        id1 = get_node_id(node1)
+        id2 = get_node_id(node2)
+
+        if id1[1] is None or id2[1] is None:
+            continue
+
+        if str(id1) < str(id2):
+            pair = (id1, id2)
+        else:
+            pair = (id2, id1)
+
+        unique_pair_sets["overall"][interaction].add(pair)
+        unique_pair_sets[scope][interaction].add(pair)
+
+    for scope in scope_types:
+        for interaction_type in interaction_types:
+            result[scope]["unique_pair_count"][interaction_type] = len(
+                unique_pair_sets[scope][interaction_type]
+            )
+
+    return result
+
+
+def generate_interaction_report(interaction_list: List[Dict[str, Any]], interaction_statistics: Dict[str, Dict[str, int]]) -> dict:
+
+    return {
+        "output_type": "enzywizard_interaction",
+        "interactions": interaction_list,
+        "interactions_statistics": interaction_statistics,
+    }

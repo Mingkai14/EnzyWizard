@@ -3,13 +3,15 @@ from rdkit import Chem
 from openmm.app import Modeller
 from openmm.app.element import hydrogen as ELEMENT_H
 from openmm import Vec3
-from ..utils.substrate_utils import is_valid_mol_3d
+from ..utils.substrate_utils import is_valid_mol_3d, is_valid_mol_h
 from typing import Tuple, List, Any, Dict, Set
 import numpy as np
 from ..resources.aa_resources import AA3_STANDARD, HBOND_SIDE_ACCEPTORS, HBOND_SIDE_DONOR_HEAVY, PROTEIN_IONIC_RESIDUES, VDW_RADIUS_A, PROTEIN_PIPI_AROMATIC_RESIDUES, PROTEIN_PIPI_RING_ATOMS, DISULFIDE_RESNAME, DISULFIDE_ATOM_NAME
+from ..resources.aa_resources import PROTEIN_PICATION_LYS_ATOM, PROTEIN_PICATION_ARG_CENTER_ATOMS, PROTEIN_PICATION_ARG_PLANE_ATOMS, PROTEIN_PICATION_CATION_RESIDUES
 from scipy.spatial import cKDTree
 from functools import lru_cache
 from rdkit.Chem import ChemicalFeatures
+from ..utils.logging_utils import Logger
 from rdkit import RDConfig
 from rdkit import RDLogger
 RDLogger.DisableLog("rdApp.*")
@@ -17,6 +19,62 @@ RDLogger.DisableLog("rdApp.*")
 '''
 helper
 '''
+
+
+
+
+def filter_valid_docked_substrates(
+    substrate_name_list: List[str],
+    ligand_mol_list: List[Chem.Mol],
+    modeller: Modeller,
+    logger: Logger,
+    docked_heavy_atom_distance_cutoff_A: float = 6.5,
+) -> Tuple[List[str], List[Chem.Mol]] | None:
+
+    if not isinstance(substrate_name_list, list) or not isinstance(ligand_mol_list, list):
+        logger.print("[ERROR] substrate_name_list and ligand_mol_list must be lists.")
+        return None
+
+    if len(substrate_name_list) != len(ligand_mol_list):
+        logger.print("[ERROR] substrate_name_list and ligand_mol_list must have the same length.")
+        return None
+
+    if not isinstance(modeller, Modeller):
+        logger.print("[ERROR] modeller must be an OpenMM Modeller.")
+        return None
+
+    if not isinstance(docked_heavy_atom_distance_cutoff_A, (int, float)) or float(docked_heavy_atom_distance_cutoff_A) <= 0.0:
+        logger.print("[ERROR] docked_heavy_atom_distance_cutoff_A must be a positive number.")
+        return None
+
+    valid_substrate_name_list: List[str] = []
+    valid_ligand_mol_list: List[Chem.Mol] = []
+
+    for substrate_name, lig_mol in zip(substrate_name_list, ligand_mol_list):
+
+        # ---- check mol 3D ----
+        if not is_valid_mol_3d(lig_mol, logger):
+            logger.print(f"[ERROR] Invalid Mol(3D) for substrate '{substrate_name}'. It is recommended to use 'enzywizard substrate' to generate substrate structures and 'enzywizard dock' to generate docked substrate structures.")
+            return None
+
+        # ---- check hydrogen ----
+        if not is_valid_mol_h(lig_mol, logger):
+            logger.print(f"[ERROR] Substrate '{substrate_name}' does not contain valid explicit hydrogen atoms. It is recommended to use 'enzywizard substrate' to generate substrate structures and 'enzywizard dock' to generate docked substrate structures.")
+            return None
+
+        # ---- check docking ----
+        if not is_protein_substrate_docked(
+            modeller=modeller,
+            ligand_mol=lig_mol,
+            logger=logger,
+            heavy_atom_distance_cutoff_A=float(docked_heavy_atom_distance_cutoff_A),
+        ):
+            logger.print(f"[WARNING] Substrate '{substrate_name}' is not spatially docked to protein.")
+
+        valid_substrate_name_list.append(substrate_name)
+        valid_ligand_mol_list.append(lig_mol)
+
+    return valid_substrate_name_list, valid_ligand_mol_list
 
 def to_angstrom(v: Vec3) -> np.ndarray:
     return np.array([v.x, v.y, v.z], dtype=float) * 10.0
@@ -990,8 +1048,6 @@ def find_pipi_hits_between_ring_entries(ring_entries_1: List[Dict[str, Any]],rin
 '''
 PICATION
 '''
-
-from ..resources.aa_resources import PROTEIN_PICATION_LYS_ATOM, PROTEIN_PICATION_ARG_CENTER_ATOMS, PROTEIN_PICATION_ARG_PLANE_ATOMS, PROTEIN_PICATION_CATION_RESIDUES
 
 def classify_pication_arg_geometry(gamma_deg: float) -> str:
     gamma = float(gamma_deg)

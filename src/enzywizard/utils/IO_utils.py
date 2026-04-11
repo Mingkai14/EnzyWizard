@@ -620,9 +620,8 @@ def write_docked_complex_from_mol_list(
     docked_mol_list: List[Chem.Mol],
     protein_name: str,
     substrate_names: str,
-    docking_index: int,
     output_dir: str | Path,
-    logger: Logger,
+    logger: Logger
 ) -> str | None:
     if struct is None:
         logger.print("[ERROR] struct is None.")
@@ -638,10 +637,6 @@ def write_docked_complex_from_mol_list(
 
     if not isinstance(substrate_names, str) or not substrate_names.strip():
         logger.print("[ERROR] Invalid substrate_names.")
-        return None
-
-    if not isinstance(docking_index, int) or docking_index <= 0:
-        logger.print("[ERROR] Invalid docking_index.")
         return None
 
     if not isinstance(output_dir, (str, Path)):
@@ -664,7 +659,7 @@ def write_docked_complex_from_mol_list(
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        complex_name = f"docked{docking_index}_{protein_name}_{substrate_names}"
+        complex_name = f"docked_{protein_name}_{substrate_names}"
         complex_name = get_optimized_filename(complex_name)
         cif_path = output_dir / f"{complex_name}.cif"
         pdb_path = output_dir / f"{complex_name}.pdb"
@@ -784,3 +779,52 @@ def load_openmm_modeller(path: str | Path, logger) -> Modeller | None:
         logger.print(f"[ERROR] Failed to load OpenMM Modeller from {str(p)}")
         return None
 
+def load_substrate_name_and_mol_3d_list(substrate_names: str,substrate_dir: str | Path,logger: Logger) -> Tuple[List[str], List[Chem.Mol]] | None:
+    if not isinstance(substrate_names, str) or not substrate_names.strip():
+        logger.print("[ERROR] substrate_names is empty.")
+        return None
+
+    if not isinstance(substrate_dir, (str, Path)):
+        logger.print("[ERROR] substrate_dir must be a str or Path.")
+        return None
+
+    try:
+        substrate_dir = Path(substrate_dir)
+    except Exception:
+        logger.print("[ERROR] Failed to parse substrate_dir.")
+        return None
+
+    if not substrate_dir.exists() or not substrate_dir.is_dir():
+        logger.print(f"[ERROR] Invalid substrate_dir: {substrate_dir}")
+        return None
+
+    substrate_name_list = [x.strip() for x in str(substrate_names).split(",")]
+    if len(substrate_name_list) == 0:
+        logger.print("[ERROR] substrate_names is empty.")
+        return None
+
+    if any(not x for x in substrate_name_list):
+        logger.print("[ERROR] substrate_names contains empty substrate name.")
+        return None
+
+    if len(set(substrate_name_list)) != len(substrate_name_list):
+        logger.print("[ERROR] Duplicate substrate names are not allowed.")
+        return None
+
+    mol_3d_list: List[Chem.Mol] = []
+
+    for substrate_name in substrate_name_list:
+        sdf_path = substrate_dir / f"{substrate_name}.sdf"
+
+        if not sdf_path.exists() or not sdf_path.is_file():
+            logger.print(f"[ERROR] Substrate SDF not found: {sdf_path}")
+            return None
+
+        mol_3d = load_sdf_mol_3d(sdf_path, logger)
+        if mol_3d is None:
+            logger.print(f"[ERROR] Failed to load Mol(3D) from SDF: {sdf_path}")
+            return None
+
+        mol_3d_list.append(mol_3d)
+
+    return substrate_name_list, mol_3d_list

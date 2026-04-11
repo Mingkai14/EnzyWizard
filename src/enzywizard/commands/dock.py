@@ -9,9 +9,8 @@ def add_dock_parser(subparsers) -> None:
     parser.add_argument("-s", "--substrate_names",required=True,help="Input substrate names separated by ','. Each substrate name must match corresponding SDF file names in substrate_dir.")
     parser.add_argument("--substrate_dir",required=True,help="Path to a directory containing input substrate SDF files used for docking.")
     parser.add_argument("-o", "--output_dir",required=True,help="Path to a directory for outputting docked substrate SDF files, docked protein-substrate complex CIF/PDB files, and a JSON report.")
-    parser.add_argument("--max_docking_result_num",type=int,default=3,help="Maximum number of successful docking results to keep (default: 3). Once this number is reached, the workflow stops and returns the currently collected best-scoring results.")
     parser.add_argument("--max_docking_attempt_num",type=int,default=20,help="Maximum number of docking attempts (default: 20).")
-    parser.add_argument("--max_pose_read_num",type=int,default=1,help="Maximum number of poses read from each successful Vina docking run (default: 1). Larger values allow multiple top-ranked poses to be retained from a single docking attempt.")
+    parser.add_argument("--early_stop", type=lambda x: str(x).lower() in ["true", "1", "yes"], default=False, help="Whether to stop immediately after the first successful docking result (True/False, default: False). If True, the returned result may not be the global best.")
     parser.add_argument("--exhaustiveness",type=int,default=16,help="Exhaustiveness of AutoDock Vina search (default: 16). Larger values may improve docking search coverage but increase runtime.")
     parser.add_argument("--cpu",type=int,default=0,help="Number of CPUs used by AutoDock Vina (default: 0). A value of 0 lets Vina decide automatically.")
     parser.add_argument("--min_rad",type=float,default=1.8,help="Minimum probe radius used in pocket detection (default: 1.8). Smaller values may detect narrower cavities, but overly small values may cause PyVOL/MSMS failure.")
@@ -27,9 +26,8 @@ def run_dock(args: Namespace) -> None:
         substrate_names=args.substrate_names,
         substrate_dir=args.substrate_dir,
         output_dir=args.output_dir,
-        max_docking_result_num=args.max_docking_result_num,
         max_docking_attempt_num=args.max_docking_attempt_num,
-        max_pose_read_num=args.max_pose_read_num,
+        early_stop=args.early_stop,
         exhaustiveness=args.exhaustiveness,
         cpu=args.cpu,
         min_rad=args.min_rad,
