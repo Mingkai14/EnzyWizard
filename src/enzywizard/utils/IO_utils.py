@@ -419,6 +419,7 @@ def write_protein_pdbqt(struct: Structure,pdbqt_path: str | Path,logger: Logger)
                     "mk_prepare_receptor.py",
                     "--read_pdb", str(tmp_pdb),
                     "--write_pdbqt", str(pdbqt_path),
+                    "--allow_bad_res"
                 ],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,

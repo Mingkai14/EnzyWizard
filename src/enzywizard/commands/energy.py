@@ -8,7 +8,7 @@ def add_energy_parser(subparsers) -> None:
     parser.add_argument("-i","--input_path", required=True, help="Path to input CIF/PDB file.")
     parser.add_argument("-o","--output_dir", required=True, help="Path to a directory for outputting a JSON report.")
     parser.add_argument("--minimize_energy",type=lambda x: str(x).lower() in ["true", "1", "yes"],default=True,help="Whether to perform an energy minimization before energy evaluation (True/False, default: True).")
-    parser.add_argument("--minimization_iteration",type=int,default=2000,help="Maximum number of iterations for energy minimization (default: 2000). A smaller value may result in energy values closer to the instantaneous (non-minimized) state.")
+    parser.add_argument("--minimization_iteration",type=int,default=1000,help="Maximum number of iterations for energy minimization (default: 1000). A smaller value may result in energy values closer to the instantaneous (non-minimized) state.")
     parser.set_defaults(func=run_energy)
 
 
@@ -23,7 +23,7 @@ def run_energy(args: Namespace) -> None:
 
 --minimize_energy Optional. Whether to perform an energy minimization before energy evaluation (default: True).
 
---minimization_iteration Optional. Maximum number of iterations for energy minimization (default: 2000). A smaller value may result in energy values closer to the instantaneous (non-minimized) state.
+--minimization_iteration Optional. Maximum number of iterations for energy minimization (default: 1000). A smaller value may result in energy values closer to the instantaneous (non-minimized) state.
 '''
 
 # output content:

@@ -14,6 +14,7 @@ from .commands.pocket import add_pocket_parser
 from .commands.substrate import add_substrate_parser
 from .commands.dock import add_dock_parser
 from .commands.interaction import add_interaction_parser
+from .commands.integrate import add_integrate_parser
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -36,6 +37,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_substrate_parser(subparsers)
     add_dock_parser(subparsers)
     add_interaction_parser(subparsers)
+    add_integrate_parser(subparsers)
 
     return parser
 
