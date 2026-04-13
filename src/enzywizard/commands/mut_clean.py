@@ -1,9 +1,9 @@
 from __future__ import annotations
 from argparse import Namespace
-from ..services.mutclean_service import run_mutclean_service
+from ..services.mut_clean_service import run_mutclean_service
 
 def add_mutclean_parser(subparsers) -> None:
-    parser = subparsers.add_parser("mutclean",help="Clean a pair of wild-type and mutant CIF/PDB structure files with a specified amino acid substitution.")
+    parser = subparsers.add_parser("mut_clean",help="Clean a pair of wild-type and mutant CIF/PDB structure files with a specified amino acid substitution.")
     parser.add_argument("-w","--wt_input_path", required=True, help="Path to wild-type protein structure file (CIF/PDB).")
     parser.add_argument("-m","--mut_input_path", required=True, help="Path to mutant protein structure file (CIF/PDB).")
     parser.add_argument("-s","--mutation", required=True, help="Amino acid substitution(s) describing mutations, e.g., A123V or A123V,G456D.")
@@ -38,7 +38,7 @@ The program outputs:
     - cleaned_<mut_name>.fasta
 2. A JSON report containing:
 
-    - "output_type": "enzywizard_mutclean"
+    - "output_type": "enzywizard_mut_clean"
 
     - "amino_acid_substitution":
         The original input mutation(s).

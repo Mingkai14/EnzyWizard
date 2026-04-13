@@ -1,7 +1,7 @@
 from typing import TypedDict, List, Dict, Literal, Required, NotRequired
 
 CLEAN_TYPE = "enzywizard_clean"
-MUTCLEAN_TYPE = "enzywizard_mutclean"
+MUTCLEAN_TYPE = "enzywizard_mut_clean"
 AAPROPS_TYPE = "enzywizard_aaprops"
 HYDROCLUSTER_TYPE = "enzywizard_hydrocluster"
 ENERGY_TYPE = "enzywizard_energy"
@@ -56,7 +56,7 @@ mutclean_report
 '''
 
 class EnzyWizardMutCleanOutput(TypedDict):
-    output_type: Literal["enzywizard_mutclean"]
+    output_type: Literal["enzywizard_mut_clean"]
 
     amino_acid_substitution: str
     cleaned_amino_acid_substitution: str

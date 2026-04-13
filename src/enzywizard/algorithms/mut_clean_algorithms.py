@@ -1,6 +1,6 @@
 from typing import Dict, Tuple, Any
 from ..utils.logging_utils import Logger
-from ..utils.mutclean_utils import get_muts_from_aas
+from ..utils.mut_clean_utils import get_muts_from_aas
 from Bio.PDB.Structure import Structure
 from ..utils.structure_utils import get_single_chain
 
@@ -198,7 +198,7 @@ def generate_mutclean_report(
         })
 
     return {
-        "output_type": "enzywizard_mutclean",
+        "output_type": "enzywizard_mut_clean",
         "amino_acid_substitution": old_aas,
         "cleaned_amino_acid_substitution": cleaned_aas,
         "wt_amino_acid_mapping_old_to_new": wt_amino_acid_mapping_old_2_new,

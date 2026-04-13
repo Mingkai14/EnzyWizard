@@ -3,6 +3,7 @@ from pathlib import Path
 from ..utils.logging_utils import Logger
 from ..utils.IO_utils import file_exists,get_stem, check_filename_length, load_fasta, write_json_from_dict_inline_leaf_lists
 from ..algorithms.embedding_algorithms import generate_embedding, generate_embedding_report
+from ..utils.common_utils import get_optimized_filename
 
 def run_embedding_service(input_fasta: str | Path, output_dir: str | Path, model_name: str = "esm2_t6_8M_UR50D") -> bool:
     # ---- logger ----
@@ -42,7 +43,7 @@ def run_embedding_service(input_fasta: str | Path, output_dir: str | Path, model
     report = generate_embedding_report(embeddings)
 
     # ---- write output ----
-    json_report_path = output_dir / f"embedding_report_{name}.json"
+    json_report_path = output_dir / get_optimized_filename(f"embedding_report_{name}.json")
     write_json_from_dict_inline_leaf_lists(report, json_report_path)
     logger.print(f"[INFO] Report JSON saved: {json_report_path}")
 

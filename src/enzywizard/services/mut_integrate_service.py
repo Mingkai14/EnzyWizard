@@ -23,7 +23,7 @@ from ..algorithms.mut_integrate_algorithms import integrate_mut_reports
 
 def run_mut_integrate_service(mutclean_report_path: str | Path,wt_input_dir: str | Path,mut_input_dir: str | Path,output_dir: str | Path,strict: bool = False) -> bool:
     logger = Logger(output_dir)
-    logger.print(f"[INFO] Mut-integrate processing started: mutclean_report={mutclean_report_path}, wt_input_dir={wt_input_dir}, mut_input_dir={mut_input_dir}")
+    logger.print(f"[INFO] Mut-integrate processing started: mut_clean_report={mutclean_report_path}, wt_input_dir={wt_input_dir}, mut_input_dir={mut_input_dir}")
 
     mutclean_report_path = Path(mutclean_report_path)
     wt_input_dir = Path(wt_input_dir)
@@ -31,7 +31,7 @@ def run_mut_integrate_service(mutclean_report_path: str | Path,wt_input_dir: str
     output_dir = Path(output_dir)
 
     if not file_exists(mutclean_report_path):
-        logger.print(f"[ERROR] mutclean_report not found: {mutclean_report_path}")
+        logger.print(f"[ERROR] mut_clean_report not found: {mutclean_report_path}")
         return False
 
     if not wt_input_dir.exists() or not wt_input_dir.is_dir():
@@ -54,13 +54,13 @@ def run_mut_integrate_service(mutclean_report_path: str | Path,wt_input_dir: str
         return False
 
     if not validate_mut_integrate_report_by_type(mutclean_report_data, logger):
-        logger.print(f"[ERROR] Invalid mutclean_report format: {mutclean_report_path}")
+        logger.print(f"[ERROR] Invalid mut_clean_report format: {mutclean_report_path}")
         return False
 
     mutclean_output_type = get_mut_integrate_supported_output_type(mutclean_report_data, logger)
-    if mutclean_output_type != "enzywizard_mutclean":
+    if mutclean_output_type != "enzywizard_mut_clean":
         logger.print(
-            f"[ERROR] mutclean_report_path must point to an enzywizard_mutclean JSON file: {mutclean_report_path}"
+            f"[ERROR] mut_clean_report_path must point to an enzywizard_mut_clean JSON file: {mutclean_report_path}"
         )
         return False
 

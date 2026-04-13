@@ -5,6 +5,7 @@ from ..utils.logging_utils import Logger
 from ..utils.IO_utils import file_exists,get_stem,check_filename_length,load_protein_structure,load_openmm_structure,write_json_from_dict_inline_leaf_lists
 from ..algorithms.clean_algorithms import check_cleaned_structure
 from ..algorithms.energy_algorithms import compute_energy_terms, generate_energy_report
+from ..utils.common_utils import get_optimized_filename
 
 def run_energy_service(input_path: str | Path,output_dir: str | Path, minimize_energy: bool = True, minimization_iteration:int = 2000,force_field_file="charmm36.xml") -> bool:
     # ---- logger ----
@@ -12,6 +13,10 @@ def run_energy_service(input_path: str | Path,output_dir: str | Path, minimize_e
     logger.print(f"[INFO] Energy processing started: {input_path}")
 
     # ---- check input ----
+    if minimization_iteration <= 0:
+        logger.print(f"[ERROR] Invalid minimization_iteration: {minimization_iteration}. Must be a positive integer.")
+        return False
+
     input_path = Path(input_path)
     output_dir = Path(output_dir)
 
@@ -57,7 +62,7 @@ def run_energy_service(input_path: str | Path,output_dir: str | Path, minimize_e
         return False
 
     # ---- write output ----
-    json_report_path = output_dir / f"energy_report_{name}.json"
+    json_report_path = output_dir / get_optimized_filename(f"energy_report_{name}.json")
     write_json_from_dict_inline_leaf_lists(report, json_report_path)
     logger.print(f"[INFO] Report JSON saved: {json_report_path}")
 

@@ -4,6 +4,7 @@ from ..utils.logging_utils import Logger
 from ..utils.IO_utils import file_exists,get_stem,check_filename_length, load_protein_structure, load_dssp, write_json_from_dict_inline_leaf_lists
 from ..algorithms.clean_algorithms import check_cleaned_structure
 from ..algorithms.aaprops_algorithms import calculate_aa_props, calculate_aa_props_statistics, generate_aaprops_report
+from ..utils.common_utils import get_optimized_filename
 
 def run_aaprops_service(input_path: str | Path, output_dir: str | Path) ->bool:
     # ---- logger ----
@@ -53,7 +54,7 @@ def run_aaprops_service(input_path: str | Path, output_dir: str | Path) ->bool:
     if aa_props_statistics is None:
         return False
 
-    json_report_path = output_dir / f"aaprops_report_{name}.json"
+    json_report_path = output_dir / get_optimized_filename(f"aaprops_report_{name}.json")
 
     report=generate_aaprops_report(aa_props, aa_props_statistics)
     write_json_from_dict_inline_leaf_lists(report,json_report_path)

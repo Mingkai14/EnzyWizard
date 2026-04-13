@@ -2,7 +2,7 @@ from __future__ import annotations
 import argparse
 
 from .commands.clean import add_clean_parser
-from .commands.mutclean import add_mutclean_parser
+from .commands.mut_clean import add_mutclean_parser
 from .commands.aaprops import add_aaprops_parser
 from .commands.hydrocluster import add_hydrocluster_parser
 from .commands.energy import add_energy_parser

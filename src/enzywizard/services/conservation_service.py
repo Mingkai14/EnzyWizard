@@ -4,6 +4,7 @@ from pathlib import Path
 from ..utils.IO_utils import file_exists, get_stem, check_filename_length, load_msa, load_fasta, write_msa, write_hmm, write_json_from_dict_inline_leaf_lists
 from ..utils.sequence_utils import check_msa, clean_msa_to_sto
 from ..algorithms.conservation_algorithms import compute_conservation_scores, generate_conservation_report
+from ..utils.common_utils import get_optimized_filename
 
 def run_conservation_service(input_fasta: str | Path, input_msa: str | Path, output_dir: str | Path) ->bool:
     # ---- logger ----
@@ -61,13 +62,13 @@ def run_conservation_service(input_fasta: str | Path, input_msa: str | Path, out
     logger.print(f"[INFO] MSA identically cleaned to STO format")
 
     #---- write cleaned msa ----
-    cleaned_msa_path=output_dir / f'cleaned_{msa_name}.sto'
+    cleaned_msa_path=output_dir / get_optimized_filename(f'cleaned_{msa_name}.sto')
     if not write_msa(cleaned_msa_list,cleaned_msa_path,logger):
         return False
     logger.print(f"[INFO] Cleaned MSA STO file saved: {str(cleaned_msa_path)}")
 
     #---- write hmm file ----
-    hmm_path = output_dir / f'hmm_profile_{msa_name}.hmm'
+    hmm_path = output_dir / get_optimized_filename(f'hmm_profile_{msa_name}.hmm')
     if not write_hmm(cleaned_msa_path,hmm_path,logger):
         return False
     logger.print(f"[INFO] HMM Profile file saved: {str(hmm_path)}")
@@ -78,7 +79,7 @@ def run_conservation_service(input_fasta: str | Path, input_msa: str | Path, out
     if conservation_scores is None:
         return False
 
-    json_report_path = output_dir / f"conservation_report_{protein_name}.json"
+    json_report_path = output_dir / get_optimized_filename(f"conservation_report_{protein_name}.json")
 
     report=generate_conservation_report(conservation_scores)
     write_json_from_dict_inline_leaf_lists(report,json_report_path)

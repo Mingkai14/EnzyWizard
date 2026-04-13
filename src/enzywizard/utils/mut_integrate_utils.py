@@ -28,7 +28,7 @@ from ..utils.integrate_utils import (
 )
 
 
-MUT_INTEGRATE_SUPPORTED_OUTPUT_TYPES = set(SUPPORTED_OUTPUT_TYPES) | {"enzywizard_mutclean"}
+MUT_INTEGRATE_SUPPORTED_OUTPUT_TYPES = set(SUPPORTED_OUTPUT_TYPES) | {"enzywizard_mut_clean"}
 
 MUT_INTEGRATE_SIDE_OUTPUT_TYPES = {
     "enzywizard_aaprops",
@@ -61,38 +61,39 @@ def extract_wt_mut_protein_names_from_mutclean_report_path(
 
     try:
         name = Path(mutclean_report_path).name
-        m = re.fullmatch(r"mutclean_report_(.+)\.json", name)
+        m = re.fullmatch(r"mut_clean_report_(.+)\.json", name)
         if m is None:
             logger.print(
-                "[ERROR] mutclean_report file name must match "
-                "mutclean_report_{wt_protein_name}_{mut_protein_name}.json"
+                "[ERROR] mut_clean_report file name must match "
+                "mut_clean_report_{wt_protein_name}_to_{mut_protein_name}.json"
             )
             return None
 
         body = m.group(1).strip()
         if body == "":
-            logger.print(f"[ERROR] Invalid mutclean_report file name: {name}")
+            logger.print(f"[ERROR] Invalid mut_clean_report file name: {name}")
             return None
 
-        split_index = body.rfind("_")
-        if split_index <= 0 or split_index >= len(body) - 1:
+        split_token = "_to_"
+        if split_token not in body:
             logger.print(
-                f"[ERROR] Invalid mutclean_report file name. Cannot parse WT/MUT protein names: {name}"
+                f"[ERROR] Invalid mut_clean_report file name. Cannot find '_to_' separator: {name}"
             )
             return None
 
-        wt_protein_name = body[:split_index].strip()
-        mut_protein_name = body[split_index + 1:].strip()
+        wt_protein_name, mut_protein_name = body.split(split_token, 1)
+        wt_protein_name = wt_protein_name.strip()
+        mut_protein_name = mut_protein_name.strip()
 
         if wt_protein_name == "" or mut_protein_name == "":
             logger.print(
-                f"[ERROR] Invalid WT or MUT protein name in mutclean_report file name: {name}"
+                f"[ERROR] Invalid WT or MUT protein name in mut_clean_report file name: {name}"
             )
             return None
 
         return wt_protein_name, mut_protein_name
     except Exception as e:
-        logger.print(f"[ERROR] Failed to parse mutclean_report file name: {e}")
+        logger.print(f"[ERROR] Failed to parse mut_clean_report file name: {e}")
         return None
 
 
@@ -112,7 +113,7 @@ def validate_mut_integrate_report_by_type(data: Dict[str, Any], logger: Logger) 
     if output_type is None:
         return False
 
-    if output_type == "enzywizard_mutclean":
+    if output_type == "enzywizard_mut_clean":
         return validate_mutclean_report(data, logger)
     if output_type == "enzywizard_clean":
         return validate_clean_report(data, logger)
@@ -144,8 +145,8 @@ def validate_mut_integrate_report_by_type(data: Dict[str, Any], logger: Logger) 
 
 
 def validate_mutclean_report(data: Dict[str, Any], logger: Logger) -> bool:
-    if data.get("output_type") != "enzywizard_mutclean":
-        logger.print("[ERROR] mutclean report output_type mismatch.")
+    if data.get("output_type") != "enzywizard_mut_clean":
+        logger.print("[ERROR] mut_clean report output_type mismatch.")
         return False
 
     amino_acid_substitution = data.get("amino_acid_substitution")
@@ -156,11 +157,11 @@ def validate_mutclean_report(data: Dict[str, Any], logger: Logger) -> bool:
     mut_stats = data.get("mut_clean_statistics")
 
     if not isinstance(amino_acid_substitution, str) or amino_acid_substitution.strip() == "":
-        logger.print("[ERROR] Invalid amino_acid_substitution in mutclean report.")
+        logger.print("[ERROR] Invalid amino_acid_substitution in mut_clean report.")
         return False
 
     if not isinstance(cleaned_amino_acid_substitution, str) or cleaned_amino_acid_substitution.strip() == "":
-        logger.print("[ERROR] Invalid cleaned_amino_acid_substitution in mutclean report.")
+        logger.print("[ERROR] Invalid cleaned_amino_acid_substitution in mut_clean report.")
         return False
 
     if not isinstance(wt_mapping, list):
@@ -231,7 +232,7 @@ def synthesize_clean_report_from_mutclean(
     logger: Logger,
 ) -> Dict[str, Any] | None:
     if not isinstance(mutclean_report, dict):
-        logger.print("[ERROR] mutclean_report must be a dict.")
+        logger.print("[ERROR] mut_clean_report must be a dict.")
         return None
 
     if side == "wt":
@@ -245,11 +246,11 @@ def synthesize_clean_report_from_mutclean(
         return None
 
     if not isinstance(mapping, list):
-        logger.print(f"[ERROR] Missing mapping for side={side} in mutclean_report.")
+        logger.print(f"[ERROR] Missing mapping for side={side} in mut_clean_report.")
         return None
 
     if not isinstance(stats, dict):
-        logger.print(f"[ERROR] Missing clean statistics for side={side} in mutclean_report.")
+        logger.print(f"[ERROR] Missing clean statistics for side={side} in mut_clean_report.")
         return None
 
     clean_report = {
@@ -259,7 +260,7 @@ def synthesize_clean_report_from_mutclean(
     }
 
     if not validate_clean_report(clean_report, logger):
-        logger.print(f"[ERROR] Failed to synthesize clean report from mutclean for side={side}.")
+        logger.print(f"[ERROR] Failed to synthesize clean report from mut_clean for side={side}.")
         return None
 
     return clean_report

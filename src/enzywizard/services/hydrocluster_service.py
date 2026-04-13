@@ -7,7 +7,7 @@ from ..utils.IO_utils import file_exists,get_stem,check_filename_length,load_pro
 from ..algorithms.clean_algorithms import check_cleaned_structure
 
 from ..algorithms.hydrocluster_algorithms import compute_hydrophobic_clusters,generate_hydrocluster_report
-
+from ..utils.common_utils import get_optimized_filename
 
 
 def run_hydrocluster_service(input_path: str | Path,output_dir: str | Path, cutoff_area: float = 10.0) -> bool:
@@ -16,6 +16,10 @@ def run_hydrocluster_service(input_path: str | Path,output_dir: str | Path, cuto
     logger.print(f"[INFO] Hydrocluster processing started: {input_path}")
 
     # ---- check input ----
+    if cutoff_area <= 0:
+        logger.print(f"[ERROR] Invalid cutoff_area: {cutoff_area}. Must be a positive number.")
+        return False
+
     input_path = Path(input_path)
     output_dir = Path(output_dir)
 
@@ -56,7 +60,7 @@ def run_hydrocluster_service(input_path: str | Path,output_dir: str | Path, cuto
         return False
 
     # ---- write output ----
-    json_report_path = output_dir / f"hydrocluster_report_{name}.json"
+    json_report_path = output_dir / get_optimized_filename(f"hydrocluster_report_{name}.json")
     write_json_from_dict_inline_leaf_lists(report, json_report_path)
     logger.print(f"[INFO] Report JSON saved: {json_report_path}")
 

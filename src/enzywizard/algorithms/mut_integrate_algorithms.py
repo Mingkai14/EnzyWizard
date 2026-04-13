@@ -10,7 +10,7 @@ from ..utils.integrate_utils import (
     normalize_aa_name_to_one_letter,
 )
 
-from ..utils.mutclean_utils import check_amino_acid_substitution, get_muts_from_aas
+from ..utils.mut_clean_utils import check_amino_acid_substitution, get_muts_from_aas
 from ..utils.mut_integrate_utils import (
     synthesize_clean_report_from_mutclean,
 )
@@ -46,7 +46,7 @@ def integrate_mut_reports(
     logger: Logger,
 ) -> Dict[str, Any] | None:
     if not isinstance(mutclean_report, dict):
-        logger.print("[ERROR] mutclean_report must be a dict.")
+        logger.print("[ERROR] mut_clean_report must be a dict.")
         return None
 
     if not isinstance(wt_report_dict, dict):
@@ -73,7 +73,7 @@ def integrate_mut_reports(
 
     cleaned_amino_acid_substitution = mutclean_report.get("cleaned_amino_acid_substitution")
     if not isinstance(cleaned_amino_acid_substitution, str) or cleaned_amino_acid_substitution.strip() == "":
-        logger.print("[ERROR] Invalid cleaned_amino_acid_substitution in mutclean report.")
+        logger.print("[ERROR] Invalid cleaned_amino_acid_substitution in mut_clean report.")
         return None
     cleaned_amino_acid_substitution = cleaned_amino_acid_substitution.strip()
 

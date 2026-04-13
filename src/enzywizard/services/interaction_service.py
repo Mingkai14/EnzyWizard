@@ -36,6 +36,63 @@ def run_interaction_service(
     logger = Logger(output_dir)
     logger.print(f"[INFO] Interaction processing started: {input_path}")
 
+    if bonded_h_min_distance_A < 0.5 or bonded_h_min_distance_A > 1.1:
+        logger.print(f"[ERROR] bonded_h_min_distance_A out of range [0.5, 1.1]: {bonded_h_min_distance_A}")
+        return False
+
+    if bonded_h_max_distance_A < 1.0 or bonded_h_max_distance_A > 1.5:
+        logger.print(f"[ERROR] bonded_h_max_distance_A out of range [1.0, 1.5]: {bonded_h_max_distance_A}")
+        return False
+
+    if bonded_h_min_distance_A >= bonded_h_max_distance_A:
+        logger.print(f"[ERROR] bonded_h_min_distance_A must be < bonded_h_max_distance_A.")
+        return False
+
+    if da_max_distance_A < 2.5 or da_max_distance_A > 4.5:
+        logger.print(f"[ERROR] da_max_distance_A out of range [2.5, 4.5]: {da_max_distance_A}")
+        return False
+
+    if ha_max_distance_A < 1.5 or ha_max_distance_A > 3.0:
+        logger.print(f"[ERROR] ha_max_distance_A out of range [1.5, 3.0]: {ha_max_distance_A}")
+        return False
+
+    if dha_min_angle_deg < 60 or dha_min_angle_deg > 180:
+        logger.print(f"[ERROR] dha_min_angle_deg out of range [60, 180]: {dha_min_angle_deg}")
+        return False
+
+    if ionic_distance_cutoff_A < 2.0 or ionic_distance_cutoff_A > 6.0:
+        logger.print(f"[ERROR] ionic_distance_cutoff_A out of range [2.0, 6.0]: {ionic_distance_cutoff_A}")
+        return False
+
+    if mu < 0.001 or mu > 0.1:
+        logger.print(f"[ERROR] mu out of range [0.001, 0.1]: {mu}")
+        return False
+
+    if ring_center_distance_cutoff_A < 4.0 or ring_center_distance_cutoff_A > 8.0:
+        logger.print(f"[ERROR] ring_center_distance_cutoff_A out of range [4.0, 8.0]: {ring_center_distance_cutoff_A}")
+        return False
+
+    if ring_cation_distance_cutoff_A < 3.0 or ring_cation_distance_cutoff_A > 7.0:
+        logger.print(f"[ERROR] ring_cation_distance_cutoff_A out of range [3.0, 7.0]: {ring_cation_distance_cutoff_A}")
+        return False
+
+    if ring_cation_angle_cutoff_deg < 0 or ring_cation_angle_cutoff_deg > 90:
+        logger.print(f"[ERROR] ring_cation_angle_cutoff_deg out of range [0, 90]: {ring_cation_angle_cutoff_deg}")
+        return False
+
+    if ss_max_distance_A < 1.8 or ss_max_distance_A > 3.0:
+        logger.print(f"[ERROR] ss_max_distance_A out of range [1.8, 3.0]: {ss_max_distance_A}")
+        return False
+
+    if docked_heavy_atom_distance_cutoff_A < 4.0 or docked_heavy_atom_distance_cutoff_A > 10.0:
+        logger.print(
+            f"[ERROR] docked_heavy_atom_distance_cutoff_A out of range [4.0, 10.0]: {docked_heavy_atom_distance_cutoff_A}")
+        return False
+
+    if min_residue_index_gap < 1 or min_residue_index_gap > 5:
+        logger.print(f"[ERROR] min_residue_index_gap out of range [1, 10]: {min_residue_index_gap}")
+        return False
+
     input_path = Path(input_path)
     substrate_dir = Path(substrate_dir)
     output_dir = Path(output_dir)

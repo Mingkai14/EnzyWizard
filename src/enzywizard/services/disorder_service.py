@@ -6,6 +6,7 @@ from ..utils.logging_utils import Logger
 from ..utils.IO_utils import file_exists,get_stem,check_filename_length,load_protein_structure, write_json_from_dict_inline_leaf_lists
 from ..algorithms.clean_algorithms import check_cleaned_structure
 from ..algorithms.disorder_algorithms import compute_disordered_regions, generate_disorder_report
+from ..utils.common_utils import get_optimized_filename
 
 def run_disorder_service(input_path: str | Path,output_dir: str | Path, window_size: int = 11,min_region_length: int = 5) -> bool:
     # ---- logger ----
@@ -13,6 +14,16 @@ def run_disorder_service(input_path: str | Path,output_dir: str | Path, window_s
     logger.print(f"[INFO] Disorder processing started: {input_path}")
 
     # ---- check input ----
+    if not isinstance(window_size, int) or window_size < 3 or window_size > 50 or window_size % 2 == 0:
+        logger.print(f"[ERROR] Invalid window_size: {window_size}. Must be odd integer in [3, 50].")
+        return False
+
+    if min_region_length < 3 or min_region_length > 50 or min_region_length > window_size:
+        logger.print(f"[ERROR] Invalid min_region_length: {min_region_length}. Must be integer in [3, 50] and ≤ window_size ({window_size}).")
+        return False
+
+
+
     input_path = Path(input_path)
     output_dir = Path(output_dir)
 
@@ -51,7 +62,7 @@ def run_disorder_service(input_path: str | Path,output_dir: str | Path, window_s
         return False
 
     # ---- write output ----
-    json_report_path = output_dir / f"disorder_report_{name}.json"
+    json_report_path = output_dir / get_optimized_filename(f"disorder_report_{name}.json")
     write_json_from_dict_inline_leaf_lists(report, json_report_path)
     logger.print(f"[INFO] Report JSON saved: {json_report_path}")
 

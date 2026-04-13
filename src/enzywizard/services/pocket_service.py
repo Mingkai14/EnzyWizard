@@ -5,6 +5,7 @@ from ..utils.logging_utils import Logger
 from ..utils.IO_utils import file_exists,get_stem,check_filename_length,load_protein_structure, write_json_from_dict_inline_leaf_lists
 from ..algorithms.clean_algorithms import check_cleaned_structure
 from ..algorithms.pocket_algorithms import compute_pockets, generate_pocket_report
+from ..utils.common_utils import get_optimized_filename
 
 def run_pocket_service(input_path: str | Path, output_dir: str | Path, min_rad: int = 1.8, max_rad: int =6.2, min_volume: int =50) -> bool:
     # ---- logger ----
@@ -12,6 +13,12 @@ def run_pocket_service(input_path: str | Path, output_dir: str | Path, min_rad: 
     logger.print(f"[INFO] Pocket processing started: {input_path}")
 
     # ---- check input ----
+    if min_rad < 1.2 or max_rad <= 0 or min_volume <= 20 or min_rad >= max_rad:
+        logger.print(
+            f"[ERROR] Invalid pocket parameters. Require: min_rad ≥ 1.2, max_rad > min_rad, min_volume > 20."
+        )
+        return False
+
     input_path = Path(input_path)
     output_dir = Path(output_dir)
 
@@ -48,7 +55,7 @@ def run_pocket_service(input_path: str | Path, output_dir: str | Path, min_rad: 
     report=generate_pocket_report(pocket_regions)
 
     # ---- write output ----
-    json_report_path = output_dir / f"pocket_report_{name}.json"
+    json_report_path = output_dir / get_optimized_filename(f"pocket_report_{name}.json")
     write_json_from_dict_inline_leaf_lists(report, json_report_path)
     logger.print(f"[INFO] Report JSON saved: {json_report_path}")
 

@@ -5,7 +5,7 @@ from ..services.mut_integrate_service import run_mut_integrate_service
 
 def add_mut_integrate_parser(subparsers) -> None:
     parser = subparsers.add_parser("mut_integrate",help="Integrate wild-type and mutant EnzyWizard JSON reports.",)
-    parser.add_argument("-i","--mutclean_report_path",required=True,help="Path to the required mutclean report JSON file.",)
+    parser.add_argument("-i","--mut_clean_report_path",required=True,help="Path to the required mut_clean report JSON file.",)
     parser.add_argument("-w","--wt_input_dir",required=True,help="Path to a directory containing wild-type JSON reports to integrate.",)
     parser.add_argument("-m","--mut_input_dir",required=True,help="Path to a directory containing mutant JSON reports to integrate.",)
     parser.add_argument("-o","--output_dir",required=True,help="Path to output directory for mut-integrated JSON files.",)
@@ -15,7 +15,7 @@ def add_mut_integrate_parser(subparsers) -> None:
 
 def run_mut_integrate(args: Namespace) -> None:
     run_mut_integrate_service(
-        mutclean_report_path=args.mutclean_report_path,
+        mutclean_report_path=args.mut_clean_report_path,
         wt_input_dir=args.wt_input_dir,
         mut_input_dir=args.mut_input_dir,
         output_dir=args.output_dir,

@@ -384,7 +384,7 @@ def save_substrate_structures(substrate_feature_list: List[Dict[str, Any]],outpu
                     return False
 
                 clean_name = get_clean_filename(name)
-                path = output_dir / f"{clean_name}.sdf"
+                path = output_dir / get_optimized_filename(f"{clean_name}.sdf")
 
                 tasks.append((mol, path))
 

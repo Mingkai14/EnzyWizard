@@ -26,6 +26,11 @@ def run_dock_service(
     logger = Logger(output_dir)
     logger.print(f"[INFO] Dock processing started: {input_path}")
 
+    if max_docking_attempt_num <= 0 or max_docking_attempt_num > 100 or exhaustiveness <= 0 or exhaustiveness > 64 or min_rad < 1.2 or min_volume <= 20 or min_rad >= max_rad:
+        logger.print(
+            f"[ERROR] Invalid docking parameters. Require: max_docking_attempt_num (1–100), exhaustiveness (1–64), min_rad ≥ 1.2, max_rad > min_rad, min_volume > 20.")
+        return False
+
     input_path = Path(input_path)
     substrate_dir = Path(substrate_dir)
     output_dir = Path(output_dir)

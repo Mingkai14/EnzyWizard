@@ -3,6 +3,7 @@ from ..utils.logging_utils import Logger
 from pathlib import Path
 from ..utils.IO_utils import file_exists, get_stem, check_filename_length, load_protein_structure, write_cif ,write_pdb, write_json_from_dict_inline_leaf_lists,structure_to_pdbfile,modeller_to_structure, write_fasta
 from ..algorithms.clean_algorithms import clean_structure_to_single_chain_A, generate_clean_report, check_cleaned_structure, add_hydrogens_to_pdbfile, validate_clean_mapping_coordinates
+from ..utils.common_utils import get_optimized_filename
 
 def run_clean_service(input_path: str | Path, output_dir: str | Path, add_H: bool = True, pH: float = 7.0, force_field_file: str = "charmm36.xml") ->bool:
     # ---- logger ----
@@ -10,6 +11,10 @@ def run_clean_service(input_path: str | Path, output_dir: str | Path, add_H: boo
     logger.print(f"[INFO] Clean processing started: {input_path}")
 
     # ---- check input ----
+    if not (0.0 <= pH <= 14.0):
+        logger.print(f"[ERROR] Invalid pH value: {pH}. Must be between 0 and 14.")
+        return False
+
     input_path = Path(input_path)
     output_dir = Path(output_dir)
 
@@ -62,10 +67,10 @@ def run_clean_service(input_path: str | Path, output_dir: str | Path, add_H: boo
 
     # ---- save results ----
 
-    cleaned_cif_path = output_dir / f"cleaned_{name}.cif"
-    cleaned_pdb_path = output_dir / f"cleaned_{name}.pdb"
-    cleaned_fasta_path = output_dir / f"cleaned_{name}.fasta"
-    json_report_path = output_dir / f"clean_report_{name}.json"
+    cleaned_cif_path = output_dir / get_optimized_filename(f"cleaned_{name}.cif")
+    cleaned_pdb_path = output_dir / get_optimized_filename(f"cleaned_{name}.pdb")
+    cleaned_fasta_path = output_dir / get_optimized_filename(f"cleaned_{name}.fasta")
+    json_report_path = output_dir / get_optimized_filename(f"clean_report_{name}.json")
 
     write_cif(cleaned_structure,cleaned_cif_path)
     logger.print(f"[INFO] Cleaned CIF saved: {cleaned_cif_path}")
