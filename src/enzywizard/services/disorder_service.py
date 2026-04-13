@@ -46,7 +46,9 @@ def run_disorder_service(input_path: str | Path,output_dir: str | Path, window_s
     disorder_regions=compute_disordered_regions(structure,logger,window_size=window_size,min_region_length=min_region_length)
     if disorder_regions is None:
         return False
-    report=generate_disorder_report(disorder_regions)
+    report = generate_disorder_report(disorder_regions, logger)
+    if report is None:
+        return False
 
     # ---- write output ----
     json_report_path = output_dir / f"disorder_report_{name}.json"

@@ -147,11 +147,27 @@ def build_mut_overall_statistics(
 
     wt_has_any = any(
         key in wt_report_dict
-        for key in ["enzywizard_aaprops", "enzywizard_energy", "enzywizard_dock", "enzywizard_interaction"]
+        for key in [
+            "enzywizard_aaprops",
+            "enzywizard_hydrocluster",
+            "enzywizard_disorder",
+            "enzywizard_pocket",
+            "enzywizard_energy",
+            "enzywizard_dock",
+            "enzywizard_interaction",
+        ]
     )
     mut_has_any = any(
         key in mut_report_dict
-        for key in ["enzywizard_aaprops", "enzywizard_energy", "enzywizard_dock", "enzywizard_interaction"]
+        for key in [
+            "enzywizard_aaprops",
+            "enzywizard_hydrocluster",
+            "enzywizard_disorder",
+            "enzywizard_pocket",
+            "enzywizard_energy",
+            "enzywizard_dock",
+            "enzywizard_interaction",
+        ]
     )
 
     if not wt_has_any and not mut_has_any:
@@ -265,27 +281,17 @@ def build_mutation_site_features(
             return None
 
     if "enzywizard_flexibility" in mut_report_dict:
-        mut_flexibility_lookup = build_lookup_by_residue(
-            mut_report_dict["enzywizard_flexibility"]["protein_rmsf"], "aa_id", "aa_name", logger
-        )
+        mut_flexibility_lookup = build_lookup_by_residue(mut_report_dict["enzywizard_flexibility"]["protein_rmsf"], "aa_id", "aa_name", logger)
         if mut_flexibility_lookup is None:
             return None
 
     if "enzywizard_conservation" in wt_report_dict:
-        wt_conservation_lookup = build_lookup_by_residue(
-            mut_report_dict["enzywizard_conservation"]["conservation_scores"]
-            if False else wt_report_dict["enzywizard_conservation"]["conservation_scores"],
-            "aa_id",
-            "aa_name",
-            logger,
-        )
+        wt_conservation_lookup = build_lookup_by_residue(wt_report_dict["enzywizard_conservation"]["conservation_scores"],"aa_id","aa_name",logger,)
         if wt_conservation_lookup is None:
             return None
 
     if "enzywizard_conservation" in mut_report_dict:
-        mut_conservation_lookup = build_lookup_by_residue(
-            mut_report_dict["enzywizard_conservation"]["conservation_scores"], "aa_id", "aa_name", logger
-        )
+        mut_conservation_lookup = build_lookup_by_residue(mut_report_dict["enzywizard_conservation"]["conservation_scores"], "aa_id", "aa_name", logger)
         if mut_conservation_lookup is None:
             return None
 

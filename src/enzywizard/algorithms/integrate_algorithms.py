@@ -74,12 +74,18 @@ def build_overall_statistics(report_dict: Dict[str, Dict[str, Any]],strict: bool
     overall_statistics: Dict[str, Any] = {}
 
     aaprops_report = report_dict.get("enzywizard_aaprops")
+    hydro_report = report_dict.get("enzywizard_hydrocluster")
+    disorder_report = report_dict.get("enzywizard_disorder")
+    pocket_report = report_dict.get("enzywizard_pocket")
     energy_report = report_dict.get("enzywizard_energy")
     dock_report = report_dict.get("enzywizard_dock")
     interaction_report = report_dict.get("enzywizard_interaction")
 
     if (
         aaprops_report is None
+        and hydro_report is None
+        and disorder_report is None
+        and pocket_report is None
         and energy_report is None
         and dock_report is None
         and interaction_report is None
@@ -106,6 +112,33 @@ def build_overall_statistics(report_dict: Dict[str, Dict[str, Any]],strict: bool
         overall_statistics["aa_ss_count"] = aa_ss_count
     elif strict:
         logger.print("[ERROR] enzywizard_aaprops is required in strict mode.")
+        return None
+
+    if hydro_report is not None:
+        hydro_stats = hydro_report.get("hydrophobic_cluster_statistics", {})
+        overall_statistics["hydrophobic_cluster_count"] = hydro_stats["cluster_num"]
+        overall_statistics["max_hydrophobic_cluster_area"] = hydro_stats["max_cluster_area"]
+        overall_statistics["total_hydrophobic_cluster_area"] = hydro_stats["total_cluster_area"]
+    elif strict:
+        logger.print("[ERROR] enzywizard_hydrocluster is required in strict mode.")
+        return None
+
+    if disorder_report is not None:
+        disorder_stats = disorder_report.get("disorder_region_statistics", {})
+        overall_statistics["disorder_region_count"] = disorder_stats["region_num"]
+        overall_statistics["max_disorder_region_length"] = disorder_stats["max_region_length"]
+        overall_statistics["total_disorder_region_length"] = disorder_stats["total_region_length"]
+    elif strict:
+        logger.print("[ERROR] enzywizard_disorder is required in strict mode.")
+        return None
+
+    if pocket_report is not None:
+        pocket_stats = pocket_report.get("pocket_region_statistics", {})
+        overall_statistics["pocket_region_count"] = pocket_stats["pocket_num"]
+        overall_statistics["max_pocket_region_volume"] = pocket_stats["max_pocket_volume"]
+        overall_statistics["total_pocket_region_volume"] = pocket_stats["total_pocket_volume"]
+    elif strict:
+        logger.print("[ERROR] enzywizard_pocket is required in strict mode.")
         return None
 
     if energy_report is not None:

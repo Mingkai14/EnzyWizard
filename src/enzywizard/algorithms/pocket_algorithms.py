@@ -14,6 +14,7 @@ from ..utils.structure_utils import get_single_chain,get_residues_by_chain
 from ..utils.IO_utils import write_pdb
 
 
+
 def compute_pockets(struct: Structure, logger, min_rad: float = 1.8, max_rad: float =6.2, min_volume: int =50) -> List[Dict[str, Any]] | None:
     if min_rad <= 0 or max_rad <= 0 or min_volume <= 0 or min_rad > max_rad:
         logger.print("[ERROR] Invalid PyVOL parameters.")
@@ -310,8 +311,28 @@ logger_file_level = DEBUG
 
         return pocket_results
 
-def generate_pocket_report(pocket_regions: List[Dict[str, Any]]) -> Dict[str, Any] | None:
+def calculate_pocket_statistics(pocket_regions: List[Dict[str, Any]]) -> Dict[str, Any]:
+
+    pocket_num = len(pocket_regions)
+    max_pocket_volume = 0.0
+    total_pocket_volume = 0.0
+
+    if pocket_num > 0:
+        max_pocket_volume = max(float(pocket["volume"]) for pocket in pocket_regions)
+        total_pocket_volume = sum(float(pocket["volume"]) for pocket in pocket_regions)
+
+    return {
+        "pocket_num": pocket_num,
+        "max_pocket_volume": max_pocket_volume,
+        "total_pocket_volume": total_pocket_volume,
+    }
+
+
+def generate_pocket_report(pocket_regions: List[Dict[str, Any]]) -> Dict[str, Any]:
+    pocket_region_statistics = calculate_pocket_statistics(pocket_regions)
+
     return {
         "output_type": "enzywizard_pocket",
+        "pocket_region_statistics": pocket_region_statistics,
         "pocket_regions": pocket_regions,
     }

@@ -144,8 +144,47 @@ def compute_disordered_regions(struct: Structure,logger: Logger,window_size: int
 
     return regions
 
-def generate_disorder_report(disorder_regions: List[Dict[str, Any]]) -> Dict[str, Any] | None:
+def calculate_region_statistics(disorder_regions: List[Dict[str, Any]], logger: Logger) -> Dict[str, Any] | None:
+    if not isinstance(disorder_regions, list):
+        logger.print("[ERROR] disorder_regions must be a list.")
+        return None
+
+    for region in disorder_regions:
+        if not isinstance(region, dict):
+            logger.print("[ERROR] Invalid region item in disorder_regions.")
+            return None
+
+        length = region.get("length")
+        if not isinstance(length, int):
+            logger.print("[ERROR] Region length must be an integer.")
+            return None
+
+        if length < 0:
+            logger.print("[ERROR] Region length must be non-negative.")
+            return None
+
+    region_num = len(disorder_regions)
+    max_region_length = 0
+    total_region_length = 0
+
+    if region_num > 0:
+        max_region_length = max(region["length"] for region in disorder_regions)
+        total_region_length = sum(region["length"] for region in disorder_regions)
+
+    return {
+        "region_num": region_num,
+        "max_region_length": max_region_length,
+        "total_region_length": total_region_length,
+    }
+
+def generate_disorder_report(disorder_regions: List[Dict[str, Any]], logger: Logger) -> Dict[str, Any] | None:
+    disorder_region_statistics = calculate_region_statistics(disorder_regions, logger)
+    if disorder_region_statistics is None:
+        logger.print("[ERROR] Failed to calculate disorder region statistics.")
+        return None
+
     return {
         "output_type": "enzywizard_disorder",
+        "disorder_region_statistics": disorder_region_statistics,
         "disorder_regions": disorder_regions,
     }

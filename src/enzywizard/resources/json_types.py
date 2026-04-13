@@ -127,8 +127,15 @@ class HydrophobicClusterEntry(TypedDict):
     residues: List[ResidueIDName]
 
 
+class HydrophobicClusterStatistics(TypedDict):
+    cluster_num: int
+    max_cluster_area: float
+    total_cluster_area: float
+
+
 class EnzyWizardHydroClusterOutput(TypedDict):
     output_type: Literal["enzywizard_hydrocluster"]
+    hydrophobic_cluster_statistics: HydrophobicClusterStatistics
     hydrophobic_cluster: List[HydrophobicClusterEntry]
 
 '''
@@ -185,8 +192,15 @@ class DisorderRegionEntry(TypedDict):
     residues: List[ResidueIDName]
 
 
+class DisorderRegionStatistics(TypedDict):
+    region_num: int
+    max_region_length: int
+    total_region_length: int
+
+
 class EnzyWizardDisorderOutput(TypedDict):
     output_type: Literal["enzywizard_disorder"]
+    disorder_region_statistics: DisorderRegionStatistics
     disorder_regions: List[DisorderRegionEntry]
 
 '''
@@ -243,8 +257,15 @@ class PocketRegionEntry(TypedDict):
     pocket_box_boundaries: List[float]
 
 
+class PocketRegionStatistics(TypedDict):
+    pocket_num: int
+    max_pocket_volume: float
+    total_pocket_volume: float
+
+
 class EnzyWizardPocketOutput(TypedDict):
     output_type: Literal["enzywizard_pocket"]
+    pocket_region_statistics: PocketRegionStatistics
     pocket_regions: List[PocketRegionEntry]
 
 '''
@@ -371,6 +392,18 @@ class IntegratedOverallStatistics(TypedDict):
     aa_class_count: NotRequired[List[int]]
     aa_ss_count: NotRequired[List[int]]
 
+    hydrophobic_cluster_count: NotRequired[int]
+    max_hydrophobic_cluster_area: NotRequired[float]
+    total_hydrophobic_cluster_area: NotRequired[float]
+
+    disorder_region_count: NotRequired[int]
+    max_disorder_region_length: NotRequired[int]
+    total_disorder_region_length: NotRequired[int]
+
+    pocket_region_count: NotRequired[int]
+    max_pocket_region_volume: NotRequired[float]
+    total_pocket_region_volume: NotRequired[float]
+
     total_potential_energy: NotRequired[float]
     harmonic_bond_force: NotRequired[float]
     harmonic_angle_force: NotRequired[float]
@@ -486,6 +519,42 @@ class MutIntegratedOverallStatistics(TypedDict):
     wt_aa_ss_count: NotRequired[List[int]]
     mut_aa_ss_count: NotRequired[List[int]]
     diff_aa_ss_count: NotRequired[List[int]]
+
+    wt_hydrophobic_cluster_count: NotRequired[int]
+    mut_hydrophobic_cluster_count: NotRequired[int]
+    diff_hydrophobic_cluster_count: NotRequired[int]
+
+    wt_max_hydrophobic_cluster_area: NotRequired[float]
+    mut_max_hydrophobic_cluster_area: NotRequired[float]
+    diff_max_hydrophobic_cluster_area: NotRequired[float]
+
+    wt_total_hydrophobic_cluster_area: NotRequired[float]
+    mut_total_hydrophobic_cluster_area: NotRequired[float]
+    diff_total_hydrophobic_cluster_area: NotRequired[float]
+
+    wt_disorder_region_count: NotRequired[int]
+    mut_disorder_region_count: NotRequired[int]
+    diff_disorder_region_count: NotRequired[int]
+
+    wt_max_disorder_region_length: NotRequired[int]
+    mut_max_disorder_region_length: NotRequired[int]
+    diff_max_disorder_region_length: NotRequired[int]
+
+    wt_total_disorder_region_length: NotRequired[int]
+    mut_total_disorder_region_length: NotRequired[int]
+    diff_total_disorder_region_length: NotRequired[int]
+
+    wt_pocket_region_count: NotRequired[int]
+    mut_pocket_region_count: NotRequired[int]
+    diff_pocket_region_count: NotRequired[int]
+
+    wt_max_pocket_region_volume: NotRequired[float]
+    mut_max_pocket_region_volume: NotRequired[float]
+    diff_max_pocket_region_volume: NotRequired[float]
+
+    wt_total_pocket_region_volume: NotRequired[float]
+    mut_total_pocket_region_volume: NotRequired[float]
+    diff_total_pocket_region_volume: NotRequired[float]
 
     wt_total_potential_energy: NotRequired[float]
     mut_total_potential_energy: NotRequired[float]

@@ -113,6 +113,38 @@ def compute_hydrophobic_clusters(struct: Structure,logger: Logger,cutoff_area: f
     return clusters
 
 
+def calculate_hydrocluster_statistics(clusters: List[Cluster], logger: Logger) -> Dict[str, Any] | None:
+    if not isinstance(clusters, list):
+        logger.print("[ERROR] clusters must be a list.")
+        return None
+
+    for cluster in clusters:
+        if not isinstance(cluster, Cluster):
+            logger.print("[ERROR] Invalid cluster item in clusters.")
+            return None
+
+        if not hasattr(cluster, "area"):
+            logger.print("[ERROR] Cluster item missing area attribute.")
+            return None
+
+        if not isinstance(cluster.area, (int, float)):
+            logger.print("[ERROR] cluster.area must be a number.")
+            return None
+
+    cluster_num = len(clusters)
+    max_cluster_area = 0.0
+    total_cluster_area = 0.0
+
+    if cluster_num > 0:
+        max_cluster_area = max(float(cluster.area) for cluster in clusters)
+        total_cluster_area = sum(float(cluster.area) for cluster in clusters)
+
+    return {
+        "cluster_num": cluster_num,
+        "max_cluster_area": max_cluster_area,
+        "total_cluster_area": total_cluster_area,
+    }
+
 def generate_hydrocluster_report(clusters: List[Cluster],struct: Structure,logger: Logger) -> Dict[str, Any] | None:
     chain = get_single_chain(struct, logger)
     if chain is None:
@@ -153,5 +185,54 @@ def generate_hydrocluster_report(clusters: List[Cluster],struct: Structure,logge
 
     return {
         "output_type": "enzywizard_hydrocluster",
+        "hydrophobic_cluster": hydrophobic_cluster_list,
+    }
+
+def generate_hydrocluster_report(clusters: List[Cluster],struct: Structure,logger: Logger) -> Dict[str, Any] | None:
+    chain = get_single_chain(struct, logger)
+    if chain is None:
+        logger.print("[ERROR] Failed to get single chain when generating hydrophobic cluster report.")
+        return None
+
+    residue_list = get_residues_by_chain(chain, logger)
+    if residue_list is None:
+        logger.print("[ERROR] Failed to get residue list when generating hydrophobic cluster report.")
+        return None
+
+    hydrophobic_cluster_statistics = calculate_hydrocluster_statistics(clusters, logger)
+    if hydrophobic_cluster_statistics is None:
+        logger.print("[ERROR] Failed to calculate hydrophobic cluster statistics.")
+        return None
+
+    residue_key_to_name: Dict[Tuple[str, int, str], str] = {}
+    for residue_key, resname, _ in residue_list:
+        residue_key_to_name[residue_key] = resname
+
+    hydrophobic_cluster_list: List[Dict[str, Any]] = []
+
+    for cluster in sorted(clusters, key=lambda x: x.area, reverse=True):
+        residue_dict_list: List[Dict[str, Any]] = []
+
+        for residue_key in cluster.residues:
+            if residue_key not in residue_key_to_name:
+                logger.print(f"[ERROR] Residue key {residue_key} not found in structure residue list.")
+                return None
+
+            _, resseq, _ = residue_key
+            resname = residue_key_to_name[residue_key]
+
+            residue_dict_list.append({
+                "aa_id": resseq,
+                "aa_name": resname,
+            })
+
+        hydrophobic_cluster_list.append({
+            "area": cluster.area,
+            "residues": residue_dict_list,
+        })
+
+    return {
+        "output_type": "enzywizard_hydrocluster",
+        "hydrophobic_cluster_statistics": hydrophobic_cluster_statistics,
         "hydrophobic_cluster": hydrophobic_cluster_list,
     }

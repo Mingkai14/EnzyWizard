@@ -558,7 +558,22 @@ def validate_hydrocluster_report(data: Dict[str, Any], logger: Logger) -> bool:
         logger.print("[ERROR] hydrocluster report output_type mismatch.")
         return False
 
+    stats = data.get("hydrophobic_cluster_statistics")
     clusters = data.get("hydrophobic_cluster")
+
+    if not isinstance(stats, dict):
+        logger.print("[ERROR] Invalid hydrophobic_cluster_statistics.")
+        return False
+    if not isinstance(stats.get("cluster_num"), int):
+        logger.print("[ERROR] Invalid hydrophobic_cluster_statistics.cluster_num.")
+        return False
+    if not _is_number(stats.get("max_cluster_area")):
+        logger.print("[ERROR] Invalid hydrophobic_cluster_statistics.max_cluster_area.")
+        return False
+    if not _is_number(stats.get("total_cluster_area")):
+        logger.print("[ERROR] Invalid hydrophobic_cluster_statistics.total_cluster_area.")
+        return False
+
     if not isinstance(clusters, list):
         logger.print("[ERROR] Invalid hydrophobic_cluster.")
         return False
@@ -638,7 +653,22 @@ def validate_disorder_report(data: Dict[str, Any], logger: Logger) -> bool:
         logger.print("[ERROR] disorder report output_type mismatch.")
         return False
 
+    stats = data.get("disorder_region_statistics")
     regions = data.get("disorder_regions")
+
+    if not isinstance(stats, dict):
+        logger.print("[ERROR] Invalid disorder_region_statistics.")
+        return False
+    if not isinstance(stats.get("region_num"), int):
+        logger.print("[ERROR] Invalid disorder_region_statistics.region_num.")
+        return False
+    if not isinstance(stats.get("max_region_length"), int):
+        logger.print("[ERROR] Invalid disorder_region_statistics.max_region_length.")
+        return False
+    if not isinstance(stats.get("total_region_length"), int):
+        logger.print("[ERROR] Invalid disorder_region_statistics.total_region_length.")
+        return False
+
     if not isinstance(regions, list):
         logger.print("[ERROR] Invalid disorder_regions.")
         return False
@@ -713,7 +743,22 @@ def validate_pocket_report(data: Dict[str, Any], logger: Logger) -> bool:
         logger.print("[ERROR] pocket report output_type mismatch.")
         return False
 
+    stats = data.get("pocket_region_statistics")
     regions = data.get("pocket_regions")
+
+    if not isinstance(stats, dict):
+        logger.print("[ERROR] Invalid pocket_region_statistics.")
+        return False
+    if not isinstance(stats.get("pocket_num"), int):
+        logger.print("[ERROR] Invalid pocket_region_statistics.pocket_num.")
+        return False
+    if not _is_number(stats.get("max_pocket_volume")):
+        logger.print("[ERROR] Invalid pocket_region_statistics.max_pocket_volume.")
+        return False
+    if not _is_number(stats.get("total_pocket_volume")):
+        logger.print("[ERROR] Invalid pocket_region_statistics.total_pocket_volume.")
+        return False
+
     if not isinstance(regions, list):
         logger.print("[ERROR] Invalid pocket_regions.")
         return False
