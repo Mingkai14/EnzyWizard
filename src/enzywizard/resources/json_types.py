@@ -14,6 +14,7 @@ SUBSTRATE_TYPE = "enzywizard_substrate"
 DOCK_TYPE = "enzywizard_dock"
 INTERACTION_TYPE = "enzywizard_interaction"
 INTEGRATE_TYPE = "enzywizard_integrate"
+MUT_INTEGRATE_TYPE = "enzywizard_mut_integrate"
 
 
 '''
@@ -466,6 +467,167 @@ class EnzyWizardIntegrateOutput(TypedDict):
     output_type: Required[Literal["enzywizard_integrate"]]
     overall_statistics: Required[IntegratedOverallStatistics]
     integrated_graph: Required[List[IntegratedGraphEntry]]
+
+'''
+'''
+
+'''
+mut_integrate_report
+'''
+class MutIntegratedOverallStatistics(TypedDict):
+    wt_aa_name_count: NotRequired[List[int]]
+    mut_aa_name_count: NotRequired[List[int]]
+    diff_aa_name_count: NotRequired[List[int]]
+
+    wt_aa_class_count: NotRequired[List[int]]
+    mut_aa_class_count: NotRequired[List[int]]
+    diff_aa_class_count: NotRequired[List[int]]
+
+    wt_aa_ss_count: NotRequired[List[int]]
+    mut_aa_ss_count: NotRequired[List[int]]
+    diff_aa_ss_count: NotRequired[List[int]]
+
+    wt_total_potential_energy: NotRequired[float]
+    mut_total_potential_energy: NotRequired[float]
+    diff_total_potential_energy: NotRequired[float]
+
+    wt_harmonic_bond_force: NotRequired[float]
+    mut_harmonic_bond_force: NotRequired[float]
+    diff_harmonic_bond_force: NotRequired[float]
+
+    wt_harmonic_angle_force: NotRequired[float]
+    mut_harmonic_angle_force: NotRequired[float]
+    diff_harmonic_angle_force: NotRequired[float]
+
+    wt_custom_bond_force: NotRequired[float]
+    mut_custom_bond_force: NotRequired[float]
+    diff_custom_bond_force: NotRequired[float]
+
+    wt_custom_torsion_force: NotRequired[float]
+    mut_custom_torsion_force: NotRequired[float]
+    diff_custom_torsion_force: NotRequired[float]
+
+    wt_custom_nonbonded_force: NotRequired[float]
+    mut_custom_nonbonded_force: NotRequired[float]
+    diff_custom_nonbonded_force: NotRequired[float]
+
+    wt_nonbonded_force: NotRequired[float]
+    mut_nonbonded_force: NotRequired[float]
+    diff_nonbonded_force: NotRequired[float]
+
+    wt_periodic_torsion_force: NotRequired[float]
+    mut_periodic_torsion_force: NotRequired[float]
+    diff_periodic_torsion_force: NotRequired[float]
+
+    wt_cmap_torsion_force: NotRequired[float]
+    mut_cmap_torsion_force: NotRequired[float]
+    diff_cmap_torsion_force: NotRequired[float]
+
+    wt_docking_score: NotRequired[float]
+    mut_docking_score: NotRequired[float]
+    diff_docking_score: NotRequired[float]
+
+    wt_hbond_count: NotRequired[int]
+    mut_hbond_count: NotRequired[int]
+    diff_hbond_count: NotRequired[int]
+
+    wt_ionic_count: NotRequired[int]
+    mut_ionic_count: NotRequired[int]
+    diff_ionic_count: NotRequired[int]
+
+    wt_vdw_count: NotRequired[int]
+    mut_vdw_count: NotRequired[int]
+    diff_vdw_count: NotRequired[int]
+
+    wt_pipistack_count: NotRequired[int]
+    mut_pipistack_count: NotRequired[int]
+    diff_pipistack_count: NotRequired[int]
+
+    wt_pication_count: NotRequired[int]
+    mut_pication_count: NotRequired[int]
+    diff_pication_count: NotRequired[int]
+
+    wt_ssbond_count: NotRequired[int]
+    mut_ssbond_count: NotRequired[int]
+    diff_ssbond_count: NotRequired[int]
+
+
+class MutationSiteFeatures(TypedDict):
+    wt_aa_name: NotRequired[str]
+    mut_aa_name: NotRequired[str]
+
+    wt_aa_class: NotRequired[str]
+    mut_aa_class: NotRequired[str]
+
+    wt_aa_ss: NotRequired[str]
+    mut_aa_ss: NotRequired[str]
+
+    wt_aa_rsa: NotRequired[float]
+    mut_aa_rsa: NotRequired[float]
+    diff_aa_rsa: NotRequired[float]
+
+    wt_aa_phi: NotRequired[float]
+    mut_aa_phi: NotRequired[float]
+    diff_aa_phi: NotRequired[float]
+
+    wt_aa_psi: NotRequired[float]
+    mut_aa_psi: NotRequired[float]
+    diff_aa_psi: NotRequired[float]
+
+    wt_aa_net_charge: NotRequired[float]
+    mut_aa_net_charge: NotRequired[float]
+    diff_aa_net_charge: NotRequired[float]
+
+    wt_aa_pka: NotRequired[float]
+    mut_aa_pka: NotRequired[float]
+    diff_aa_pka: NotRequired[float]
+
+    wt_aa_volume: NotRequired[float]
+    mut_aa_volume: NotRequired[float]
+    diff_aa_volume: NotRequired[float]
+
+    wt_aa_hydrophobicity: NotRequired[float]
+    mut_aa_hydrophobicity: NotRequired[float]
+    diff_aa_hydrophobicity: NotRequired[float]
+
+    wt_aa_molecular_weight: NotRequired[float]
+    mut_aa_molecular_weight: NotRequired[float]
+    diff_aa_molecular_weight: NotRequired[float]
+
+    wt_aa_pi: NotRequired[float]
+    mut_aa_pi: NotRequired[float]
+    diff_aa_pi: NotRequired[float]
+
+    wt_rmsf: NotRequired[float]
+    mut_rmsf: NotRequired[float]
+    diff_rmsf: NotRequired[float]
+
+    wt_conservation_score: NotRequired[float]
+    mut_conservation_score: NotRequired[float]
+    diff_conservation_score: NotRequired[float]
+
+    wt_aa_name_one_hot: NotRequired[List[int] | List[float]]
+    mut_aa_name_one_hot: NotRequired[List[int] | List[float]]
+    diff_aa_name_one_hot: NotRequired[List[int] | List[float]]
+
+    wt_aa_class_one_hot: NotRequired[List[int] | List[float]]
+    mut_aa_class_one_hot: NotRequired[List[int] | List[float]]
+    diff_aa_class_one_hot: NotRequired[List[int] | List[float]]
+
+    wt_aa_ss_one_hot: NotRequired[List[int] | List[float]]
+    mut_aa_ss_one_hot: NotRequired[List[int] | List[float]]
+    diff_aa_ss_one_hot: NotRequired[List[int] | List[float]]
+
+
+class EnzyWizardMutIntegrateOutput(TypedDict):
+    output_type: Required[Literal["enzywizard_mut_integrate"]]
+    cleaned_amino_acid_substitution: Required[str]
+
+    overall_statistics: Required[MutIntegratedOverallStatistics]
+    mutation_site_features: Required[MutationSiteFeatures]
+
+    wt_integrated_graph: Required[List[IntegratedGraphEntry]]
+    mut_integrated_graph: Required[List[IntegratedGraphEntry]]
 
 '''
 '''

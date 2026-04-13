@@ -3,7 +3,7 @@ from argparse import Namespace
 from ..services.integrate_service import run_integrate_service
 
 def add_integrate_parser(subparsers) -> None:
-    parser = subparsers.add_parser("integrate",help="Integrate EnzyWizard JSON reports into a protein-substrate interaction graph.")
+    parser = subparsers.add_parser("integrate",help="Integrate EnzyWizard JSON reports.")
     parser.add_argument("-i", "--clean_report_path",required=True,help="Path to the required clean report JSON file.")
     parser.add_argument("-d", "--input_dir",required=True,help="Path to a directory containing JSON reports to integrate.")
     parser.add_argument("-o", "--output_dir",required=True,help="Path to output directory for integrated JSON and GraphML.")

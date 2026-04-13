@@ -504,11 +504,11 @@ def resolve_interaction_node_to_integrated_node(interaction_node: Dict[str, Any]
         aa_index = interaction_node.get("aa_index")
         aa_name = interaction_node.get("aa_name")
 
-        aa_name_norm = normalize_aa_name_to_one_letter(aa_name)
-
         if not isinstance(aa_index, int) or not isinstance(aa_name, str):
             logger.print("[ERROR] Invalid amino acid interaction node.")
             return None
+
+        aa_name_norm = normalize_aa_name_to_one_letter(aa_name)
 
         return node_lookup.get(("amino_acid", aa_index, aa_name_norm))
 
