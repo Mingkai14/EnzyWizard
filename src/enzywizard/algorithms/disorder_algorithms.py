@@ -8,6 +8,7 @@ from ..utils.logging_utils import Logger
 from ..utils.structure_utils import get_single_chain, get_chain_length, get_residues_by_chain, get_sequence
 from ..resources.aa_physicochemical_props import hydrophobicity_dict, net_charge_dict
 from ..utils.disorder_utils import moving_average
+from ..utils.sequence_utils import normalize_aa_name_to_one_letter
 
 def predict_disorder_scores( sequence: str, logger: Logger, window_size: int = 11, ) -> List[float] | None:
     """
@@ -73,7 +74,7 @@ def build_disordered_regions(residues: List[Tuple[Tuple[str, int, str], str, Tup
 
                     residues_list.append({
                         "aa_id": key[1],
-                        "aa_name": resname,
+                        "aa_name": normalize_aa_name_to_one_letter(resname),
                     })
 
                 regions.append({
@@ -95,7 +96,7 @@ def build_disordered_regions(residues: List[Tuple[Tuple[str, int, str], str, Tup
 
                 residues_list.append({
                     "aa_id": key[1],
-                    "aa_name": resname,
+                    "aa_name": normalize_aa_name_to_one_letter(resname),
                 })
 
             regions.append({

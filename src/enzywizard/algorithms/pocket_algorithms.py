@@ -12,6 +12,7 @@ import numpy as np
 from Bio.PDB.Structure import Structure
 from ..utils.structure_utils import get_single_chain,get_residues_by_chain
 from ..utils.IO_utils import write_pdb
+from ..utils.sequence_utils import normalize_aa_name_to_one_letter
 
 
 
@@ -268,7 +269,7 @@ logger_file_level = DEBUG
                 residues.append(
                     {
                         "aa_id": int(resseq),
-                        "aa_name": resseq_to_name[resseq],
+                        "aa_name": normalize_aa_name_to_one_letter(resseq_to_name[resseq]),
                     }
                 )
 

@@ -54,13 +54,13 @@ def filter_valid_docked_substrates(
 
         # ---- check mol 3D ----
         if not is_valid_mol_3d(lig_mol, logger):
-            logger.print(f"[ERROR] Invalid Mol(3D) for substrate '{substrate_name}'. It is recommended to use 'enzywizard substrate' to generate substrate structures and 'enzywizard dock' to generate docked substrate structures.")
-            return None
+            logger.print(f"[WARNING] Invalid Mol(3D) for substrate '{substrate_name}'. Skipped. It is recommended to use 'enzywizard substrate' to generate substrate structures and 'enzywizard dock' to generate docked substrate structures.")
+            continue
 
         # ---- check hydrogen ----
         if not is_valid_mol_h(lig_mol, logger):
-            logger.print(f"[ERROR] Substrate '{substrate_name}' does not contain valid explicit hydrogen atoms. It is recommended to use 'enzywizard substrate' to generate substrate structures and 'enzywizard dock' to generate docked substrate structures.")
-            return None
+            logger.print(f"[WARNING] Substrate '{substrate_name}' does not contain valid explicit hydrogen atoms. It is recommended to use 'enzywizard substrate' to generate substrate structures and 'enzywizard dock' to generate docked substrate structures.")
+
 
         # ---- check docking ----
         if not is_protein_substrate_docked(
@@ -69,8 +69,8 @@ def filter_valid_docked_substrates(
             logger=logger,
             heavy_atom_distance_cutoff_A=float(docked_heavy_atom_distance_cutoff_A),
         ):
-            logger.print(f"[WARNING] Substrate '{substrate_name}' is not spatially docked to protein.Skip.")
-            continue
+            logger.print(f"[WARNING] Substrate '{substrate_name}' is not spatially docked to protein. It is recommended to use 'enzywizard substrate' to generate substrate structures and 'enzywizard dock' to generate docked substrate structures.")
+
 
 
         valid_substrate_name_list.append(substrate_name)

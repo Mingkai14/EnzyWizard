@@ -13,6 +13,8 @@ from ..utils.interaction_utils import collect_substrate_vdw_atoms,collect_protei
 from ..utils.interaction_utils import collect_protein_pipi_rings, collect_substrate_pipi_rings, find_pipi_hits_between_ring_entries, min_angle_0_90, angle_deg_between_vectors, classify_pipi_geometry
 from ..utils.interaction_utils import collect_protein_pication_centers, classify_pication_arg_geometry, find_pication_hits_between_ring_entries_and_cation_entries, collect_substrate_pication_centers
 from ..utils.interaction_utils import collect_protein_disulfide_sites, find_disulfide_bond_hits
+from ..utils.sequence_utils import normalize_aa_name_to_one_letter
+
 
 def calculate_hydrogen_bond_network(
     modeller: Modeller,
@@ -148,8 +150,7 @@ def calculate_hydrogen_bond_network(
             logger=logger,
             heavy_atom_distance_cutoff_A=float(docked_heavy_atom_distance_cutoff_A),
         ):
-            logger.print(f"[WARNING] Ligand at index {ligand_index} is not spatially docked to protein. Skipped.")
-            continue
+            logger.print(f"[WARNING] Substrate at index {ligand_index} is not spatially docked to protein. It is recommended to use 'enzywizard substrate' to generate substrate structures and 'enzywizard dock' to generate docked substrate structures.")
 
         try:
             lig_coords_A, bonded_lig = build_substrate_tables(lig_mol)
@@ -352,8 +353,8 @@ def calculate_ionic_bond_network(
             logger=logger,
             heavy_atom_distance_cutoff_A=float(docked_heavy_atom_distance_cutoff_A),
         ):
-            logger.print(f"[WARNING] Ligand at index {ligand_index} is not spatially docked to protein. Skipped.")
-            continue
+            logger.print(
+                f"[WARNING] Substrate at index {ligand_index} is not spatially docked to protein. It is recommended to use 'enzywizard substrate' to generate substrate structures and 'enzywizard dock' to generate docked substrate structures.")
 
         try:
             lig_coords_A, bonded_lig = build_substrate_tables(lig_mol)
@@ -543,8 +544,8 @@ def calculate_van_der_waals_network(
             logger=logger,
             heavy_atom_distance_cutoff_A=float(docked_heavy_atom_distance_cutoff_A),
         ):
-            logger.print(f"[WARNING] Ligand at index {ligand_index} is not spatially docked to protein. Skipped.")
-            continue
+            logger.print(
+                f"[WARNING] Substrate at index {ligand_index} is not spatially docked to protein. It is recommended to use 'enzywizard substrate' to generate substrate structures and 'enzywizard dock' to generate docked substrate structures.")
 
         try:
             lig_coords_A, bonded_lig = build_substrate_tables(lig_mol)
@@ -722,8 +723,8 @@ def calculate_pipi_stacking_network(
             logger=logger,
             heavy_atom_distance_cutoff_A=float(docked_heavy_atom_distance_cutoff_A),
         ):
-            logger.print(f"[WARNING] Ligand at index {ligand_index} is not spatially docked to protein. Skipped.")
-            continue
+            logger.print(
+                f"[WARNING] Substrate at index {ligand_index} is not spatially docked to protein. It is recommended to use 'enzywizard substrate' to generate substrate structures and 'enzywizard dock' to generate docked substrate structures.")
 
         try:
             lig_coords_A, bonded_lig = build_substrate_tables(lig_mol)
@@ -932,8 +933,8 @@ def calculate_pication_network(
             logger=logger,
             heavy_atom_distance_cutoff_A=float(docked_heavy_atom_distance_cutoff_A),
         ):
-            logger.print(f"[WARNING] Ligand at index {ligand_index} is not spatially docked to protein. Skipped.")
-            continue
+            logger.print(
+                f"[WARNING] Substrate at index {ligand_index} is not spatially docked to protein. It is recommended to use 'enzywizard substrate' to generate substrate structures and 'enzywizard dock' to generate docked substrate structures.")
 
         try:
             lig_coords_A, bonded_lig = build_substrate_tables(lig_mol)
@@ -1143,7 +1144,7 @@ def calculate_all_interaction_network(
         aa_name = protein_letters_3to1.get(str(resname).capitalize(), "")
         aa_index_to_info[resseq] = {
             "aa_index": resseq,
-            "aa_name": aa_name,
+            "aa_name": normalize_aa_name_to_one_letter(aa_name),
             "node_type": "amino_acid",
         }
 

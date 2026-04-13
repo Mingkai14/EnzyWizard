@@ -9,6 +9,7 @@ from Bio.Data.IUPACData import protein_letters_3to1
 from ..utils.common_utils import one_hot_vec_generator, multi_hot_vec_generator
 from ..resources.aa_resources import AA_20NAME_INDEX, AA_8CLASSES, AA_8CLASSES_TO_INDICES, DSSP_8STATE_INDEX
 from ..resources.aa_physicochemical_props import net_charge_dict, pka_dict, volume_dict, hydrophobicity_dict, molecular_weight_dict, pi_dict
+from ..utils.sequence_utils import normalize_aa_name_to_one_letter
 
 def calculate_aa_props(struct: Structure, dssp: DSSP, logger: Logger) -> List[Dict[str,Any]] | None:
     return_list: List[Dict[str,Any]] =[]
@@ -36,7 +37,7 @@ def calculate_aa_props(struct: Structure, dssp: DSSP, logger: Logger) -> List[Di
         if aa is None:
             logger.print(f"[ERROR] Unrecognized residue name: {resname}")
             return None
-        return_dict['aa_name']=aa
+        return_dict['aa_name']=normalize_aa_name_to_one_letter(aa)
         return_dict['aa_name_one_hot']=one_hot_vec_generator(len(AA_20NAME_INDEX), aa, AA_20NAME_INDEX)
         return_dict['aa_class'] = "/".join(AA_8CLASSES[i][0] for i in AA_8CLASSES_TO_INDICES.get(aa, []))
         return_dict['aa_class_one_hot'] = multi_hot_vec_generator(len(AA_8CLASSES),aa,AA_8CLASSES_TO_INDICES)

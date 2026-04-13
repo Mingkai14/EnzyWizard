@@ -5,6 +5,7 @@ from ..utils.logging_utils import Logger
 from ..utils.structure_utils import get_single_chain,get_residues_by_chain
 import numpy as np
 import prody as pd
+from ..utils.sequence_utils import normalize_aa_name_to_one_letter
 
 def compute_protein_rmsf(struct: Structure, logger: Logger, cutoff: float = 15.0, n_modes: int = 20, method: str = "ANM") -> List[Dict[str, Any]] | None:
 
@@ -77,7 +78,7 @@ def compute_protein_rmsf(struct: Structure, logger: Logger, cutoff: float = 15.0
 
             result_dict: Dict[str, Any] = {
                 "aa_id": resseq,
-                "aa_name": resname,
+                "aa_name": normalize_aa_name_to_one_letter(resname),
                 "rmsf": float(rmsf_value),
             }
             results.append(result_dict)

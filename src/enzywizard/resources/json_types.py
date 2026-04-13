@@ -437,10 +437,13 @@ class IntegratedAminoAcidNode(TypedDict):
 
     aa_index: Required[int]
     aa_name: Required[str]
+    aa_name_one_hot: NotRequired[List[int]]
     aa_coord: NotRequired[List[float]]
 
     aa_class: NotRequired[str]
+    aa_class_one_hot: NotRequired[List[int]]
     aa_ss: NotRequired[str]
+    aa_ss_one_hot: NotRequired[List[int]]
     aa_rsa: NotRequired[float]
     aa_phi: NotRequired[float]
     aa_psi: NotRequired[float]
@@ -454,9 +457,6 @@ class IntegratedAminoAcidNode(TypedDict):
     rmsf: NotRequired[float]
     conservation_score: NotRequired[float]
 
-    aa_name_one_hot: NotRequired[List[int]]
-    aa_class_one_hot: NotRequired[List[int]]
-    aa_ss_one_hot: NotRequired[List[int]]
     embedding: NotRequired[List[float]]
 
     is_in_hydrophobic_cluster: NotRequired[bool]

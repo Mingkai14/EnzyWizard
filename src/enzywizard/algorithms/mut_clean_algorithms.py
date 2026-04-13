@@ -3,6 +3,7 @@ from ..utils.logging_utils import Logger
 from ..utils.mut_clean_utils import get_muts_from_aas
 from Bio.PDB.Structure import Structure
 from ..utils.structure_utils import get_single_chain
+from ..utils.sequence_utils import normalize_aa_name_to_one_letter
 
 def get_cleaned_amino_acid_substitution(
     wt_mapping_old_to_new: Dict[Tuple[int, str, str], Tuple[int, str, str]],
@@ -150,12 +151,12 @@ def generate_mutclean_report(
         wt_amino_acid_mapping_old_2_new.append({
             "old_residue": {
                 "aa_id": old_resseq,
-                "aa_name": old_resname,
+                "aa_name": normalize_aa_name_to_one_letter(old_resname),
                 "hydrogen_atom_count": old_h_count,
             },
             "new_residue": {
                 "aa_id": new_resseq,
-                "aa_name": new_resname,
+                "aa_name": normalize_aa_name_to_one_letter(new_resname),
                 "hydrogen_atom_count": new_h_count,
             }
         })
@@ -187,12 +188,12 @@ def generate_mutclean_report(
         mut_amino_acid_mapping_old_2_new.append({
             "old_residue": {
                 "aa_id": old_resseq,
-                "aa_name": old_resname,
+                "aa_name": normalize_aa_name_to_one_letter(old_resname),
                 "hydrogen_atom_count": old_h_count,
             },
             "new_residue": {
                 "aa_id": new_resseq,
-                "aa_name": new_resname,
+                "aa_name": normalize_aa_name_to_one_letter(new_resname),
                 "hydrogen_atom_count": new_h_count,
             }
         })

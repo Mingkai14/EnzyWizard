@@ -100,13 +100,13 @@ def run_integrate_service(clean_report_path: str | Path,input_dir: str | Path,ou
     if integrate_report is None:
         return False
 
-    report_output_name = get_optimized_filename(f"integrate_report_{protein_name}")
-    nodes_output_name = get_optimized_filename(f"integrate_nodes_{protein_name}")
-    edges_output_name = get_optimized_filename(f"integrate_edges_{protein_name}")
+    report_output_name = f"integrate_report_{protein_name}"
+    nodes_output_name = f"integrate_nodes_{protein_name}"
+    edges_output_name = f"integrate_edges_{protein_name}"
 
-    json_report_path = output_dir / f"{report_output_name}.json"
-    nodes_json_path = output_dir / f"{nodes_output_name}.json"
-    edges_json_path = output_dir / f"{edges_output_name}.json"
+    json_report_path = output_dir / get_optimized_filename(f"{report_output_name}.json")
+    nodes_json_path = output_dir / get_optimized_filename(f"{nodes_output_name}.json")
+    edges_json_path = output_dir / get_optimized_filename(f"{edges_output_name}.json")
 
     if not save_integrate_json(integrate_report, json_report_path, logger):
         return False

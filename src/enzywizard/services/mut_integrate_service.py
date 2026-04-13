@@ -23,7 +23,7 @@ from ..algorithms.mut_integrate_algorithms import integrate_mut_reports
 
 def run_mut_integrate_service(mutclean_report_path: str | Path,wt_input_dir: str | Path,mut_input_dir: str | Path,output_dir: str | Path,strict: bool = False) -> bool:
     logger = Logger(output_dir)
-    logger.print(f"[INFO] Mut-integrate processing started: mut_clean_report={mutclean_report_path}, wt_input_dir={wt_input_dir}, mut_input_dir={mut_input_dir}")
+    logger.print(f"[INFO] Mut_integrate processing started: mut_clean_report={mutclean_report_path}, wt_input_dir={wt_input_dir}, mut_input_dir={mut_input_dir}")
 
     mutclean_report_path = Path(mutclean_report_path)
     wt_input_dir = Path(wt_input_dir)
@@ -161,21 +161,21 @@ def run_mut_integrate_service(mutclean_report_path: str | Path,wt_input_dir: str
     if mut_integrate_report is None:
         return False
 
-    report_output_name = get_optimized_filename(f"mut_integrate_report_{wt_protein_name}_{mut_protein_name}")
-    wt_nodes_output_name = get_optimized_filename(f"wt_integrate_nodes_{wt_protein_name}")
-    wt_edges_output_name = get_optimized_filename(f"wt_integrate_edges_{wt_protein_name}")
-    mut_nodes_output_name = get_optimized_filename(f"mut_integrate_nodes_{mut_protein_name}")
-    mut_edges_output_name = get_optimized_filename(f"mut_integrate_edges_{mut_protein_name}")
+    report_output_name = f"mut_integrate_report_{wt_protein_name}_to_{mut_protein_name}"
+    wt_nodes_output_name = f"wt_integrate_nodes_{wt_protein_name}"
+    wt_edges_output_name = f"wt_integrate_edges_{wt_protein_name}"
+    mut_nodes_output_name = f"mut_integrate_nodes_{mut_protein_name}"
+    mut_edges_output_name = f"mut_integrate_edges_{mut_protein_name}"
 
-    json_report_path = output_dir / f"{report_output_name}.json"
-    wt_nodes_json_path = output_dir / f"{wt_nodes_output_name}.json"
-    wt_edges_json_path = output_dir / f"{wt_edges_output_name}.json"
-    mut_nodes_json_path = output_dir / f"{mut_nodes_output_name}.json"
-    mut_edges_json_path = output_dir / f"{mut_edges_output_name}.json"
+    json_report_path = output_dir / get_optimized_filename(f"{report_output_name}.json")
+    wt_nodes_json_path = output_dir / get_optimized_filename(f"{wt_nodes_output_name}.json")
+    wt_edges_json_path = output_dir / get_optimized_filename(f"{wt_edges_output_name}.json")
+    mut_nodes_json_path = output_dir / get_optimized_filename(f"{mut_nodes_output_name}.json")
+    mut_edges_json_path = output_dir / get_optimized_filename(f"{mut_edges_output_name}.json")
 
     if not save_mut_integrate_json(mut_integrate_report, json_report_path, logger):
         return False
-    logger.print(f"[INFO] Mut-integrate report JSON saved: {json_report_path}")
+    logger.print(f"[INFO] Mut_integrate report JSON saved: {json_report_path}")
 
     wt_integrated_graph = mut_integrate_report.get("wt_integrated_graph")
     if not isinstance(wt_integrated_graph, list):
@@ -213,5 +213,5 @@ def run_mut_integrate_service(mutclean_report_path: str | Path,wt_input_dir: str
         return False
     logger.print(f"[INFO] MUT edge list JSON saved: {mut_edges_json_path}")
 
-    logger.print("[INFO] Mut-integrate processing finished")
+    logger.print("[INFO] Mut_integrate processing finished")
     return True

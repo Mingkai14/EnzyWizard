@@ -4,21 +4,13 @@ import math
 from typing import Any, Dict, List, Tuple
 
 from ..utils.logging_utils import Logger
-from ..utils.integrate_utils import (
-    build_lookup_by_residue,
-    get_clean_new_residue_list,
-    normalize_aa_name_to_one_letter,
-)
+from ..utils.integrate_utils import build_lookup_by_residue,get_clean_new_residue_list
 
 from ..utils.mut_clean_utils import check_amino_acid_substitution, get_muts_from_aas
-from ..utils.mut_integrate_utils import (
-    synthesize_clean_report_from_mutclean,
-)
+from ..utils.mut_integrate_utils import synthesize_clean_report_from_mutclean
 
-from ..algorithms.integrate_algorithms import (
-    build_overall_statistics,
-    build_integrated_graph,
-)
+from ..algorithms.integrate_algorithms import build_overall_statistics,build_integrated_graph
+from ..utils.sequence_utils import normalize_aa_name_to_one_letter
 
 
 def generate_mut_integrate_report(
@@ -143,8 +135,6 @@ def build_mut_overall_statistics(
     strict: bool,
     logger: Logger,
 ) -> Dict[str, Any] | None:
-    overall_statistics: Dict[str, Any] = {}
-
     wt_has_any = any(
         key in wt_report_dict
         for key in [
@@ -174,7 +164,7 @@ def build_mut_overall_statistics(
         if strict:
             logger.print("[ERROR] overall_statistics cannot be empty in strict mode.")
             return None
-        return overall_statistics
+        return {}
 
     wt_stats = build_overall_statistics(wt_report_dict, strict=False, logger=logger)
     if wt_stats is None:
@@ -184,10 +174,7 @@ def build_mut_overall_statistics(
     if mut_stats is None:
         return None
 
-    _write_prefixed_statistics(overall_statistics, wt_stats, "wt_")
-    _write_prefixed_statistics(overall_statistics, mut_stats, "mut_")
-    _write_diff_statistics(overall_statistics, wt_stats, mut_stats, "diff_")
-
+    overall_statistics = reorder_mut_overall_statistics(wt_stats, mut_stats)
     return overall_statistics
 
 
@@ -213,6 +200,46 @@ def build_mut_integrated_graphs(
 
     return wt_integrated_graph, mut_integrated_graph
 
+def reorder_mutation_site_features(data: Dict[str, Any]) -> Dict[str, Any]:
+    ordered: Dict[str, Any] = {}
+
+    field_order = [
+        "aa_name",
+        "aa_name_one_hot",
+        "aa_class",
+        "aa_class_one_hot",
+        "aa_ss",
+        "aa_ss_one_hot",
+        "aa_rsa",
+        "aa_phi",
+        "aa_psi",
+        "aa_net_charge",
+        "aa_pka",
+        "aa_volume",
+        "aa_hydrophobicity",
+        "aa_molecular_weight",
+        "aa_pi",
+        "rmsf",
+        "conservation_score",
+    ]
+
+    for field_name in field_order:
+        wt_key = f"wt_{field_name}"
+        mut_key = f"mut_{field_name}"
+        diff_key = f"diff_{field_name}"
+
+        if wt_key in data:
+            ordered[wt_key] = data[wt_key]
+        if mut_key in data:
+            ordered[mut_key] = data[mut_key]
+        if diff_key in data:
+            ordered[diff_key] = data[diff_key]
+
+    for key, value in data.items():
+        if key not in ordered:
+            ordered[key] = value
+
+    return ordered
 
 def build_mutation_site_features(
     mutclean_report: Dict[str, Any],
@@ -477,29 +504,66 @@ def build_mutation_site_features(
     _write_mutation_vector_triplet(result, "aa_class_one_hot", wt_aa_class_one_hot_list, mut_aa_class_one_hot_list)
     _write_mutation_vector_triplet(result, "aa_ss_one_hot", wt_aa_ss_one_hot_list, mut_aa_ss_one_hot_list)
 
+    result = reorder_mutation_site_features(result)
+
     return result
 
 
-def _write_prefixed_statistics(
-    out: Dict[str, Any],
-    stats: Dict[str, Any],
-    prefix: str,
-) -> None:
-    for key, value in stats.items():
-        out[f"{prefix}{key}"] = value
 
-
-def _write_diff_statistics(
-    out: Dict[str, Any],
+def reorder_mut_overall_statistics(
     wt_stats: Dict[str, Any],
     mut_stats: Dict[str, Any],
-    prefix: str,
-) -> None:
-    shared_keys = sorted(set(wt_stats.keys()) & set(mut_stats.keys()))
-    for key in shared_keys:
-        diff_value = _diff_scalar_or_list(wt_stats[key], mut_stats[key])
-        if diff_value is not None:
-            out[f"{prefix}{key}"] = diff_value
+) -> Dict[str, Any]:
+    ordered: Dict[str, Any] = {}
+
+    field_order = [
+        "aa_name_count",
+        "aa_class_count",
+        "aa_ss_count",
+        "hydrophobic_cluster_count",
+        "max_hydrophobic_cluster_area",
+        "total_hydrophobic_cluster_area",
+        "disorder_region_count",
+        "max_disorder_region_length",
+        "total_disorder_region_length",
+        "pocket_region_count",
+        "max_pocket_region_volume",
+        "total_pocket_region_volume",
+        "total_potential_energy",
+        "harmonic_bond_force",
+        "harmonic_angle_force",
+        "custom_bond_force",
+        "custom_torsion_force",
+        "custom_nonbonded_force",
+        "nonbonded_force",
+        "periodic_torsion_force",
+        "cmap_torsion_force",
+        "docking_score",
+        "hbond_count",
+        "ionic_count",
+        "vdw_count",
+        "pipistack_count",
+        "pication_count",
+        "ssbond_count",
+    ]
+
+    for field_name in field_order:
+        wt_has = field_name in wt_stats
+        mut_has = field_name in mut_stats
+
+        if wt_has:
+            ordered[f"wt_{field_name}"] = wt_stats[field_name]
+        if mut_has:
+            ordered[f"mut_{field_name}"] = mut_stats[field_name]
+
+        if wt_has and mut_has:
+            diff_value = _diff_scalar_or_list(wt_stats[field_name], mut_stats[field_name])
+            if diff_value is not None:
+                ordered[f"diff_{field_name}"] = diff_value
+
+    return ordered
+
+
 
 
 def _diff_scalar_or_list(wt_value: Any, mut_value: Any) -> Any | None:

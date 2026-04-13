@@ -1,6 +1,8 @@
 from __future__ import annotations
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Any
+
+from Bio.Data.IUPACData import protein_letters_3to1
 
 from ..utils.logging_utils import Logger
 from ..utils.conservation_utils import check_msa_sto,check_msa_aligned_fasta,check_msa_a3m, clean_sto,clean_aligned_fasta,clean_a3m, remove_a3m_insertions, is_all_gap
@@ -152,3 +154,18 @@ def clean_msa_to_sto(msa_list: List[Dict[str, str]], logger: Logger) -> List[Dic
     except Exception as e:
         logger.print(f"[ERROR] Exception in clean_msa_to_sto: {e}")
         return None
+
+
+def normalize_aa_name_to_one_letter(aa_name: Any) -> str:
+
+    aa_name_clean = aa_name.strip()
+
+    if len(aa_name_clean) == 1:
+        return aa_name_clean.upper()
+
+    if len(aa_name_clean) == 3:
+        aa_name_3 = aa_name_clean.upper().capitalize()
+        aa_name_1 = protein_letters_3to1.get(aa_name_3)
+        if isinstance(aa_name_1, str) and aa_name_1 != "":
+            return aa_name_1.upper()
+    return aa_name

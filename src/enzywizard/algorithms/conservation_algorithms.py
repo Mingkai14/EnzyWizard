@@ -4,6 +4,7 @@ from typing import List, Dict, Any
 from pathlib import Path
 import math
 from Bio.Data.IUPACData import protein_letters_1to3
+from ..utils.sequence_utils import normalize_aa_name_to_one_letter
 
 
 def get_emission_probabilities_from_hmm(hmm_file: str | Path, logger: Logger) -> List[Dict[str, Any]] | None:
@@ -200,7 +201,7 @@ def compute_conservation_scores(hmm_file: str | Path, sequence_dict: Dict[str,st
 
             result_list.append({
                 "aa_id": i,
-                "aa_name": aa_name.upper(),
+                "aa_name": normalize_aa_name_to_one_letter(aa_name.upper()),
                 "hmm_emission_log_score": raw_score_dict.get(query_aa),
                 "emission_probability": float(emission_prob_dict[query_aa]),
                 "conservation_score": float(entropy),

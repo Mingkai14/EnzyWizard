@@ -5,6 +5,7 @@ import torch
 from Bio.Data.IUPACData import protein_letters_1to3
 from ..utils.logging_utils import Logger
 from ..utils.embedding_utils import load_esm2
+from ..utils.sequence_utils import  normalize_aa_name_to_one_letter
 
 def generate_embedding(sequence_dict: Dict[str, str],logger: Logger, model_name: str = "esm2_t6_8M_UR50D", device: Optional[str] = None) -> List[Dict[str, Any]] | None:
 
@@ -79,7 +80,7 @@ def generate_embedding(sequence_dict: Dict[str, str],logger: Logger, model_name:
 
         result.append({
             "aa_id": i + 1,
-            "aa_name": protein_letters_1to3[sequence[i]].upper(),
+            "aa_name": normalize_aa_name_to_one_letter(protein_letters_1to3[sequence[i]].upper()),
             "embedding": per_res[i].tolist(),
         })
 

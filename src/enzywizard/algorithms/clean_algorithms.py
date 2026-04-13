@@ -11,6 +11,7 @@ from Bio.PDB.Atom import Atom
 from Bio.PDB.Residue import Residue
 from openmm.app import Modeller, ForceField, PDBFile
 import math
+from ..utils.sequence_utils import normalize_aa_name_to_one_letter
 
 def clean_structure_to_single_chain_A(struct: Structure, logger: Logger) -> Tuple[Structure, Dict[Tuple[int, str, str], Tuple[int, str, str]], Dict[str, int]] | None:
     old_chain = get_single_chain(struct, logger)
@@ -230,12 +231,12 @@ def generate_clean_report(structure: Structure, cleaned_structure: Structure, ma
         amino_acid_mapping_old_2_new.append({
             "old_residue": {
                 "aa_id": old_resseq,
-                "aa_name": old_resname,
+                "aa_name": normalize_aa_name_to_one_letter(old_resname),
                 "hydrogen_atom_count": old_h_count,
             },
             "new_residue": {
                 "aa_id": new_resseq,
-                "aa_name": new_resname,
+                "aa_name": normalize_aa_name_to_one_letter(new_resname),
                 "hydrogen_atom_count": new_h_count,
             }
         })

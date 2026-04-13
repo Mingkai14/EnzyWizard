@@ -6,6 +6,7 @@ from ..utils.mut_clean_utils import check_amino_acid_substitution
 from ..utils.structure_utils import get_single_chain,get_chain_length
 from ..algorithms.clean_algorithms import clean_structure_to_single_chain_A, add_hydrogens_to_pdbfile, check_cleaned_structure, validate_clean_mapping_coordinates
 from ..algorithms.mut_clean_algorithms import get_cleaned_amino_acid_substitution, generate_mutclean_report
+from ..utils.common_utils import get_optimized_filename
 
 
 def run_mutclean_service(wt_input_path: str | Path, mut_input_path: str | Path, mutation:str, output_dir: str | Path, add_H: bool = True, pH: float = 7.0, force_field_file: str = "charmm36.xml")->bool:
@@ -133,15 +134,15 @@ def run_mutclean_service(wt_input_path: str | Path, mut_input_path: str | Path, 
 
     # ---- save results ----
 
-    cleaned_wt_cif_path = output_dir / f"cleaned_{wt_name}.cif"
-    cleaned_wt_pdb_path = output_dir / f"cleaned_{wt_name}.pdb"
-    cleaned_wt_fasta_path = output_dir / f"cleaned_{wt_name}.fasta"
+    cleaned_wt_cif_path = output_dir / get_optimized_filename(f"cleaned_{wt_name}.cif")
+    cleaned_wt_pdb_path = output_dir / get_optimized_filename(f"cleaned_{wt_name}.pdb")
+    cleaned_wt_fasta_path = output_dir / get_optimized_filename(f"cleaned_{wt_name}.fasta")
 
-    cleaned_mut_cif_path = output_dir / f"cleaned_{mut_name}.cif"
-    cleaned_mut_pdb_path = output_dir / f"cleaned_{mut_name}.pdb"
-    cleaned_mut_fasta_path = output_dir / f"cleaned_{mut_name}.fasta"
+    cleaned_mut_cif_path = output_dir / get_optimized_filename(f"cleaned_{mut_name}.cif")
+    cleaned_mut_pdb_path = output_dir / get_optimized_filename(f"cleaned_{mut_name}.pdb")
+    cleaned_mut_fasta_path = output_dir / get_optimized_filename(f"cleaned_{mut_name}.fasta")
 
-    json_report_path = output_dir / f"mut_clean_report_{wt_name}_to_{mut_name}.json"
+    json_report_path = output_dir / get_optimized_filename(f"mut_clean_report_{wt_name}_to_{mut_name}.json")
 
     write_cif(wt_cleaned_structure,cleaned_wt_cif_path)
     logger.print(f"[INFO] Cleaned wild-type CIF saved: {cleaned_wt_cif_path}")

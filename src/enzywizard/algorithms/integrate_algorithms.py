@@ -3,22 +3,8 @@ from __future__ import annotations
 from typing import Any, Dict, List, Tuple
 
 from ..utils.logging_utils import Logger
-from ..utils.integrate_utils import (
-    INTERACTION_ORDER,
-    aa_class_statistics_to_list,
-    aa_name_statistics_to_list,
-    aa_ss_statistics_to_list,
-    build_lookup_by_residue,
-    get_clean_new_residue_list,
-    get_disorder_membership_set,
-    get_hydrophobic_cluster_membership_set,
-    get_pocket_membership_set,
-    interaction_one_hot,
-    node_type_one_hot,
-    residue_key,
-    substrate_key,
-    normalize_aa_name_to_one_letter
-)
+from ..utils.integrate_utils import INTERACTION_ORDER,aa_class_statistics_to_list,aa_name_statistics_to_list,aa_ss_statistics_to_list,build_lookup_by_residue,get_clean_new_residue_list,get_disorder_membership_set,get_hydrophobic_cluster_membership_set,get_pocket_membership_set,interaction_one_hot,node_type_one_hot,residue_key,substrate_key
+from ..utils.sequence_utils import normalize_aa_name_to_one_letter
 
 
 def generate_integrate_report(overall_statistics: Dict[str, Any],integrated_graph: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -578,13 +564,24 @@ def reorder_amino_acid_node(node: Dict[str, Any]) -> Dict[str, Any]:
     ordered["aa_index"] = node["aa_index"]
     ordered["aa_name"] = node["aa_name"]
 
+    if "aa_name_one_hot" in node:
+        ordered["aa_name_one_hot"] = node["aa_name_one_hot"]
+
     if "aa_coord" in node:
         ordered["aa_coord"] = node["aa_coord"]
 
     if "aa_class" in node:
         ordered["aa_class"] = node["aa_class"]
+
+    if "aa_class_one_hot" in node:
+        ordered["aa_class_one_hot"] = node["aa_class_one_hot"]
+
     if "aa_ss" in node:
         ordered["aa_ss"] = node["aa_ss"]
+
+    if "aa_ss_one_hot" in node:
+        ordered["aa_ss_one_hot"] = node["aa_ss_one_hot"]
+
     if "aa_rsa" in node:
         ordered["aa_rsa"] = node["aa_rsa"]
     if "aa_phi" in node:
@@ -609,12 +606,6 @@ def reorder_amino_acid_node(node: Dict[str, Any]) -> Dict[str, Any]:
     if "conservation_score" in node:
         ordered["conservation_score"] = node["conservation_score"]
 
-    if "aa_name_one_hot" in node:
-        ordered["aa_name_one_hot"] = node["aa_name_one_hot"]
-    if "aa_class_one_hot" in node:
-        ordered["aa_class_one_hot"] = node["aa_class_one_hot"]
-    if "aa_ss_one_hot" in node:
-        ordered["aa_ss_one_hot"] = node["aa_ss_one_hot"]
     if "embedding" in node:
         ordered["embedding"] = node["embedding"]
 

@@ -131,8 +131,7 @@ def run_interaction_service(
     logger.print("[INFO] Structure checked")
 
     if not structure_has_hydrogen(structure, logger):
-        logger.print("[ERROR] Protein structure does not contain hydrogen atoms. Please run 'enzywizard clean' first.")
-        return False
+        logger.print("[WARNING] Protein structure does not contain hydrogen atoms. Please run 'enzywizard clean' first.")
 
     if structure_has_too_few_hydrogens(structure, logger):
         logger.print("[WARNING] Protein structure contains few hydrogen atoms. It is recommended to run 'enzywizard clean' first.")
