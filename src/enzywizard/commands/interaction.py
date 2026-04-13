@@ -7,8 +7,8 @@ from ..services.interaction_service import run_interaction_service
 def add_interaction_parser(subparsers) -> None:
     parser = subparsers.add_parser("interaction",help="Calculate protein-substrate and intra-protein interactions for an input CIF/PDB structure using docked substrate SDF files.")
     parser.add_argument("-i","--input_path",required=True,help="Path to input CIF/PDB file.")
-    parser.add_argument("-s","--substrate_names",required=True,help="Input substrate names separated by ','. Each substrate name must match the corresponding docked SDF file name in substrate_dir.")
-    parser.add_argument("-d","--substrate_dir",required=True,help="Path to a directory containing docked substrate SDF files.")
+    parser.add_argument("-s","--substrate_names",required=False,default=None,help="Input substrate names separated by ','. Each substrate name must match the corresponding docked SDF file name in substrate_dir. If omitted together with --substrate_dir, only intra-protein interactions will be calculated.")
+    parser.add_argument("-d","--substrate_dir",required=False,default=None,help="Optional path to a directory containing docked substrate SDF files. Must be provided together with --substrate_names.")
     parser.add_argument("-o","--output_dir",required=True,help="Path to a directory for outputting the interaction JSON report.")
     parser.add_argument("--hbond_da_max_distance",type=float,default=3.9,help="Maximum donor-acceptor distance cutoff for hydrogen bond detection (default: 3.9).")
     parser.add_argument("--hbond_ha_max_distance",type=float,default=2.5,help="Maximum hydrogen-acceptor distance cutoff for hydrogen bond detection (default: 2.5).")
@@ -25,9 +25,9 @@ def add_interaction_parser(subparsers) -> None:
 def run_interaction(args: Namespace) -> None:
     run_interaction_service(
         input_path=args.input_path,
+        output_dir=args.output_dir,
         substrate_names=args.substrate_names,
         substrate_dir=args.substrate_dir,
-        output_dir=args.output_dir,
         da_max_distance_A=args.hbond_da_max_distance,
         ha_max_distance_A=args.hbond_ha_max_distance,
         dha_min_angle_deg=args.hbond_angle,

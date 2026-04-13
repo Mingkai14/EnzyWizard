@@ -16,9 +16,9 @@ from ..utils.interaction_utils import filter_valid_docked_substrates
 
 def run_interaction_service(
     input_path: str | Path,
-    substrate_names: str,
-    substrate_dir: str | Path,
     output_dir: str | Path,
+    substrate_names: str | None = None,
+    substrate_dir: str | Path | None = None,
     bonded_h_min_distance_A: float = 0.8,
     bonded_h_max_distance_A: float = 1.3,
     da_max_distance_A: float = 3.9,
@@ -90,24 +90,32 @@ def run_interaction_service(
         return False
 
     if min_residue_index_gap < 1 or min_residue_index_gap > 5:
-        logger.print(f"[ERROR] min_residue_index_gap out of range [1, 10]: {min_residue_index_gap}")
+        logger.print(f"[ERROR] min_residue_index_gap out of range [1, 5]: {min_residue_index_gap}")
         return False
 
     input_path = Path(input_path)
-    substrate_dir = Path(substrate_dir)
     output_dir = Path(output_dir)
+
+    if substrate_dir is not None:
+        substrate_dir = Path(substrate_dir)
 
     if not file_exists(input_path):
         logger.print(f"[ERROR] Input not found: {input_path}")
         return False
 
-    if not substrate_names or not str(substrate_names).strip():
-        logger.print("[ERROR] substrate_names is empty.")
+    has_substrate_names = substrate_names is not None and str(substrate_names).strip() != ""
+    has_substrate_dir = substrate_dir is not None
+
+    if has_substrate_names != has_substrate_dir:
+        logger.print("[ERROR] substrate_names and substrate_dir must be provided together, or both omitted.")
         return False
 
-    if not substrate_dir.exists() or not substrate_dir.is_dir():
-        logger.print(f"[ERROR] Invalid substrate_dir: {substrate_dir}")
-        return False
+    use_substrate_mode = has_substrate_names and has_substrate_dir
+
+    if use_substrate_mode:
+        if not substrate_dir.exists() or not substrate_dir.is_dir():
+            logger.print(f"[ERROR] Invalid substrate_dir: {substrate_dir}")
+            return False
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -136,31 +144,38 @@ def run_interaction_service(
     if structure_has_too_few_hydrogens(structure, logger):
         logger.print("[WARNING] Protein structure contains few hydrogen atoms. It is recommended to run 'enzywizard clean' first.")
 
-    loaded = load_substrate_name_and_mol_3d_list(
-        substrate_names=substrate_names,
-        substrate_dir=substrate_dir,
-        logger=logger,
-    )
-    if loaded is None:
-        return False
+    if use_substrate_mode:
+        logger.print("[INFO] Calculating protein-substrate interactions.")
+    else:
+        logger.print("[INFO] Calculating protein-only interactions.")
 
-    substrate_name_list, ligand_mol_list = loaded
-    logger.print(f"[INFO] Loaded {len(ligand_mol_list)} substrate Mol(3D) object(s)")
+    if use_substrate_mode:
+        loaded = load_substrate_name_and_mol_3d_list(
+            substrate_names=substrate_names,
+            substrate_dir=substrate_dir,
+            logger=logger,
+        )
+        if loaded is None:
+            return False
 
-    filtered = filter_valid_docked_substrates(
-        substrate_name_list=substrate_name_list,
-        ligand_mol_list=ligand_mol_list,
-        modeller=modeller,
-        logger=logger,
-        docked_heavy_atom_distance_cutoff_A=docked_heavy_atom_distance_cutoff_A,
-    )
+        substrate_name_list, ligand_mol_list = loaded
+        logger.print(f"[INFO] Loaded {len(ligand_mol_list)} substrate Mol(3D) object(s)")
 
-    if filtered is None:
-        return False
+        filtered = filter_valid_docked_substrates(
+            substrate_name_list=substrate_name_list,
+            ligand_mol_list=ligand_mol_list,
+            modeller=modeller,
+            logger=logger,
+            docked_heavy_atom_distance_cutoff_A=docked_heavy_atom_distance_cutoff_A,
+        )
+        if filtered is None:
+            return False
 
-    valid_substrate_name_list, valid_ligand_mol_list = filtered
-
-    logger.print(f"[INFO] Valid docked substrate count: {len(valid_ligand_mol_list)}")
+        valid_substrate_name_list, valid_ligand_mol_list = filtered
+        logger.print(f"[INFO] Valid docked substrate count: {len(valid_ligand_mol_list)}")
+    else:
+        valid_substrate_name_list = []
+        valid_ligand_mol_list = []
 
     logger.print("[INFO] Interaction calculation started")
     interaction_list = calculate_all_interaction_network(
@@ -200,7 +215,11 @@ def run_interaction_service(
         interaction_statistics=interaction_statistics,
     )
 
-    json_name = f"interaction_report_{name}_{substrate_names}.json"
+    if use_substrate_mode:
+        json_name = f"interaction_report_{name}_{substrate_names}.json"
+    else:
+        json_name = f"interaction_report_{name}.json"
+
     json_name = get_optimized_filename(json_name)
     json_report_path = output_dir / json_name
     write_json_from_dict_inline_leaf_lists(report, json_report_path)
