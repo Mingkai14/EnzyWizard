@@ -10,7 +10,6 @@ from ..utils.common_utils import get_optimized_filename
 
 def validate_batch_parameter_ranges(
     logger: Logger,
-    pH: float = 7.0,
     cutoff_area: float = 10.0,
     minimize_energy: bool = True,
     minimization_iteration: int = 2000,
@@ -45,9 +44,6 @@ def validate_batch_parameter_ranges(
     docked_heavy_atom_distance_cutoff_A: float = 6.5,
     min_residue_index_gap: int = 3,
 ) -> bool:
-    if not (0.0 <= pH <= 14.0):
-        logger.print(f"[ERROR] Invalid pH value: {pH}. Must be between 0 and 14.")
-        return False
 
     if cutoff_area <= 0:
         logger.print(f"[ERROR] Invalid cutoff_area: {cutoff_area}. Must be a positive number.")
@@ -172,14 +168,8 @@ def build_batch_output_paths(protein_name: str, msa_name: str, output_dir: str |
     output_dir = Path(output_dir)
 
     return {
-        "cleaned_cif": output_dir / get_optimized_filename(f"cleaned_{protein_name}.cif"),
-        "cleaned_pdb": output_dir / get_optimized_filename(f"cleaned_{protein_name}.pdb"),
-        "cleaned_fasta": output_dir / get_optimized_filename(f"cleaned_{protein_name}.fasta"),
         "cleaned_sto": output_dir / get_optimized_filename(f"cleaned_{msa_name}.sto"),
         "hmm": output_dir / get_optimized_filename(f"hmm_profile_{msa_name}.hmm"),
-        "integrate_report": output_dir / get_optimized_filename(f"integrate_report_{protein_name}.json"),
-        "integrate_nodes": output_dir / get_optimized_filename(f"integrate_nodes_{protein_name}.json"),
-        "integrate_edges": output_dir / get_optimized_filename(f"integrate_edges_{protein_name}.json"),
     }
 
 

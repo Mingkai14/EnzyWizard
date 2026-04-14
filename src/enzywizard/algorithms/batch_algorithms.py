@@ -2,18 +2,19 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Dict, Any
+from openmm.app import Modeller
 
 from ..utils.logging_utils import Logger
 from ..utils.batch_utils import build_batch_output_paths
 
-from ..utils.IO_utils import write_cif,write_pdb,write_fasta,structure_to_pdbfile,modeller_to_structure,load_dssp,load_fasta,load_msa,write_msa,write_hmm,save_substrate_structures,load_openmm_modeller,load_substrate_name_and_mol_3d_list, load_sdf_mol_3d
+from ..utils.IO_utils import structure_to_pdbfile,load_dssp,load_msa,write_msa,write_hmm,save_substrate_structures,load_sdf_mol_3d
 
 from ..utils.sequence_utils import check_msa, clean_msa_to_sto
 from ..utils.substrate_utils import get_substrate_report_suffix_from_feature_list
-from ..utils.structure_utils import structure_has_hydrogen, structure_has_too_few_hydrogens
+from ..utils.structure_utils import structure_has_hydrogen, get_fasta_dict_from_structure
 from ..utils.interaction_utils import filter_valid_docked_substrates
 
-from ..algorithms.clean_algorithms import clean_structure_to_single_chain_A,generate_clean_report,check_cleaned_structure,add_hydrogens_to_pdbfile,validate_clean_mapping_coordinates
+from ..algorithms.clean_algorithms import clean_structure_to_single_chain_A,generate_clean_report,check_cleaned_structure,validate_clean_mapping_coordinates
 
 from ..algorithms.aaprops_algorithms import calculate_aa_props,calculate_aa_props_statistics,generate_aaprops_report
 
@@ -43,19 +44,14 @@ from ..utils.substrate_utils import build_docked_mol_from_atom_info
 
 from ..utils.IO_utils import load_protein_structure
 
-from ..utils.integrate_utils import split_integrated_graph_entries
-
 def run_batch_workflow(
-    input_path: str | Path,
+    cleaned_input_path: str | Path,
     input_msa: str | Path,
     substrate_names: str,
     protein_name: str,
     msa_name: str,
     output_dir: str | Path,
     logger: Logger,
-    add_H: bool = True,
-    pH: float = 7.0,
-    clean_force_field_file: str = "charmm36.xml",
     cutoff_area: float = 10.0,
     minimize_energy: bool = True,
     minimization_iteration: int = 2000,
@@ -95,7 +91,7 @@ def run_batch_workflow(
     docked_heavy_atom_distance_cutoff_A: float = 6.5,
     min_residue_index_gap: int = 3,
 ) -> Dict[str, Any] | None:
-    input_path = Path(input_path)
+    cleaned_input_path = Path(cleaned_input_path)
     input_msa = Path(input_msa)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -104,15 +100,23 @@ def run_batch_workflow(
 
     report_dict: Dict[str, Dict[str, Any]] = {}
 
-    logger.print("[INFO] Batch clean workflow started")
-    original_structure = None
+    logger.print("[INFO] Batch workflow started from cleaned input structure")
+
     try:
-        original_structure = load_protein_structure(input_path, protein_name, logger)
+        original_structure = load_protein_structure(cleaned_input_path, protein_name, logger)
     except Exception:
         original_structure = None
 
     if original_structure is None:
-        logger.print(f"[ERROR] Failed to load structure: {input_path}")
+        logger.print(f"[ERROR] Failed to load structure: {cleaned_input_path}")
+        return None
+
+    if not check_cleaned_structure(original_structure, logger):
+        logger.print("[ERROR] Input structure is not a valid cleaned structure.")
+        return None
+
+    if not structure_has_hydrogen(original_structure, logger):
+        logger.print("[ERROR] Input cleaned structure does not contain hydrogen atoms.")
         return None
 
     clean_result = clean_structure_to_single_chain_A(original_structure, logger)
@@ -121,40 +125,9 @@ def run_batch_workflow(
 
     cleaned_structure, mapping_old_to_new, clean_stats = clean_result
 
-    if add_H:
-        temp_pdbfile = structure_to_pdbfile(cleaned_structure, logger, protein_name=protein_name)
-        if temp_pdbfile is None:
-            return None
-
-        cleaned_modeller_temp = add_hydrogens_to_pdbfile(
-            temp_pdbfile,
-            logger,
-            pH=pH,
-            force_field_file=clean_force_field_file,
-        )
-        if cleaned_modeller_temp is None:
-            return None
-
-        cleaned_structure = modeller_to_structure(cleaned_modeller_temp, logger, protein_name=protein_name)
-        if cleaned_structure is None:
-            return None
-        logger.print("[INFO] Hydrogens added")
-
-    if not check_cleaned_structure(cleaned_structure, logger):
-        return None
 
     if not validate_clean_mapping_coordinates(original_structure, cleaned_structure, mapping_old_to_new, logger):
         return None
-
-    write_cif(cleaned_structure, path_dict["cleaned_cif"])
-    logger.print(f"[INFO] Cleaned CIF saved: {path_dict['cleaned_cif']}")
-
-    write_pdb(cleaned_structure, path_dict["cleaned_pdb"])
-    logger.print(f"[INFO] Cleaned PDB saved: {path_dict['cleaned_pdb']}")
-
-    if not write_fasta(cleaned_structure, path_dict["cleaned_fasta"], logger):
-        return None
-    logger.print(f"[INFO] Cleaned FASTA saved: {path_dict['cleaned_fasta']}")
 
     clean_report = generate_clean_report(
         original_structure,
@@ -167,15 +140,21 @@ def run_batch_workflow(
         return None
     report_dict["enzywizard_clean"] = clean_report
 
-    cleaned_modeller = load_openmm_modeller(path_dict["cleaned_pdb"], logger)
-    if cleaned_modeller is None:
+    cleaned_pdbfile = structure_to_pdbfile(cleaned_structure, logger, protein_name=protein_name)
+    if cleaned_pdbfile is None:
+        return None
+
+    try:
+        cleaned_modeller = Modeller(cleaned_pdbfile.topology, cleaned_pdbfile.positions)
+    except Exception as e:
+        logger.print(f"[ERROR] Failed to build OpenMM Modeller: {e}")
         return None
     logger.print("[INFO] Cleaned OpenMM Modeller loaded")
 
-    sequence_dict = load_fasta(path_dict["cleaned_fasta"], logger)
+    sequence_dict = get_fasta_dict_from_structure(cleaned_structure, logger, header=protein_name)
     if sequence_dict is None:
         return None
-    logger.print("[INFO] Cleaned FASTA loaded for downstream modules")
+    logger.print("[INFO] Cleaned sequence prepared")
 
     logger.print("[INFO] Aaprops calculation started")
     dssp = load_dssp(cleaned_structure, logger)
@@ -368,11 +347,6 @@ def run_batch_workflow(
     report_dict["enzywizard_dock"] = dock_report
 
     logger.print("[INFO] Interaction workflow started")
-    if not structure_has_hydrogen(cleaned_structure, logger):
-        logger.print("[WARNING] Protein structure does not contain hydrogen atoms. Please run 'enzywizard clean' first.")
-
-    if structure_has_too_few_hydrogens(cleaned_structure, logger):
-        logger.print("[WARNING] Protein structure contains few hydrogen atoms. It is recommended to run 'enzywizard clean' first.")
 
     ligand_mol_list = []
     substrate_name_list = []
@@ -457,15 +431,7 @@ def run_batch_workflow(
         logger.print("[ERROR] integrated_graph missing in integrate report.")
         return None
 
-    split_result = split_integrated_graph_entries(integrated_graph, logger)
-    if split_result is None:
-        return None
-
-    node_list, edge_list = split_result
-
     return {
         "integrate_report": integrate_report,
-        "integrate_node_list": node_list,
-        "integrate_edge_list": edge_list,
         "report_dict": report_dict,
     }

@@ -191,3 +191,35 @@ def structure_has_too_few_hydrogens(struct: Structure,logger,min_hydrogen_count:
         return True
 
 
+def get_fasta_dict_from_structure(
+    struct: Structure,
+    logger: Logger,
+    header: str = "query",
+) -> Dict[str, str] | None:
+    if not isinstance(struct, Structure):
+        logger.print("[ERROR] struct must be a Bio.PDB Structure.")
+        return None
+
+    if not isinstance(header, str) or not header.strip():
+        logger.print("[ERROR] header must be a non-empty string.")
+        return None
+
+    chain = get_single_chain(struct, logger)
+    if chain is None:
+        logger.print("[ERROR] Failed to get single chain from structure.")
+        return None
+
+    residues = get_residues_by_chain(chain, logger)
+    if residues is None:
+        logger.print("[ERROR] Failed to get residues from structure chain.")
+        return None
+
+    sequence = get_sequence(residues, logger)
+    if sequence is None:
+        logger.print("[ERROR] Failed to get sequence from structure residues.")
+        return None
+
+    return {
+        "header": header.strip(),
+        "sequence": sequence,
+    }
