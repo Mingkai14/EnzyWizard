@@ -7,7 +7,7 @@ from ..algorithms.clean_algorithms import check_cleaned_structure
 from ..algorithms.energy_algorithms import compute_energy_terms, generate_energy_report
 from ..utils.common_utils import get_optimized_filename
 
-def run_energy_service(input_path: str | Path,output_dir: str | Path, minimize_energy: bool = True, minimization_iteration:int = 2000,force_field_file="charmm36.xml") -> bool:
+def run_energy_service(input_path: str | Path,output_dir: str | Path, minimize_energy: bool = True, minimization_iteration:int = 1000,force_field_file="charmm36.xml") -> bool:
     # ---- logger ----
     logger = Logger(output_dir)
     logger.print(f"[INFO] Energy processing started: {input_path}")

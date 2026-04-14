@@ -69,6 +69,35 @@ def list_json_files(input_dir: str | Path, logger: Logger) -> List[Path] | None:
         logger.print(f"[ERROR] Failed to list JSON files from {input_dir}: {e}")
         return None
 
+def find_unique_clean_report_path(json_path_list: List[Path], logger: Logger) -> Path | None:
+    if not isinstance(json_path_list, list):
+        logger.print("[ERROR] json_path_list must be a list.")
+        return None
+
+    clean_report_path_list: List[Path] = []
+
+    for json_path in json_path_list:
+        data = load_json_file(json_path, logger)
+        if data is None:
+            return None
+
+        output_type = get_supported_output_type(data, logger)
+        if output_type is None:
+            return None
+
+        if output_type == "enzywizard_clean":
+            clean_report_path_list.append(json_path)
+
+    if len(clean_report_path_list) == 0:
+        logger.print("[ERROR] No enzywizard_clean report found in input_dir.")
+        return None
+
+    if len(clean_report_path_list) > 1:
+        logger.print(f"[ERROR] Multiple enzywizard_clean reports found in input_dir: {len(clean_report_path_list)}")
+        return None
+
+    return clean_report_path_list[0]
+
 
 def extract_protein_name_from_clean_report_path(clean_report_path: str | Path, logger: Logger) -> str | None:
     try:

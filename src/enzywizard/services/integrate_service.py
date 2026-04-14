@@ -4,9 +4,9 @@ from pathlib import Path
 from typing import Dict, Any
 
 from ..utils.logging_utils import Logger
-from ..utils.IO_utils import file_exists
 from ..utils.integrate_utils import (
     extract_protein_name_from_clean_report_path,
+    find_unique_clean_report_path,
     get_supported_output_type,
     list_json_files,
     load_json_file,
@@ -18,17 +18,13 @@ from ..algorithms.integrate_algorithms import integrate_reports
 from ..utils.common_utils import get_optimized_filename
 
 
-def run_integrate_service(clean_report_path: str | Path,input_dir: str | Path,output_dir: str | Path,strict: bool = False) -> bool:
+def run_integrate_service(input_dir: str | Path,output_dir: str | Path,strict: bool = False) -> bool:
     logger = Logger(output_dir)
-    logger.print(f"[INFO] Integrate processing started: clean_report={clean_report_path}, input_dir={input_dir}")
+    logger.print(f"[INFO] Integrate processing started: input_dir={input_dir}")
 
-    clean_report_path = Path(clean_report_path)
     input_dir = Path(input_dir)
     output_dir = Path(output_dir)
 
-    if not file_exists(clean_report_path):
-        logger.print(f"[ERROR] clean_report not found: {clean_report_path}")
-        return False
 
     if not input_dir.exists() or not input_dir.is_dir():
         logger.print(f"[ERROR] Invalid input_dir: {input_dir}")
@@ -36,12 +32,17 @@ def run_integrate_service(clean_report_path: str | Path,input_dir: str | Path,ou
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    protein_name = extract_protein_name_from_clean_report_path(clean_report_path, logger)
-    if protein_name is None:
-        return False
 
     json_path_list = list_json_files(input_dir, logger)
     if json_path_list is None:
+        return False
+
+    clean_report_path = find_unique_clean_report_path(json_path_list, logger)
+    if clean_report_path is None:
+        return False
+
+    protein_name = extract_protein_name_from_clean_report_path(clean_report_path, logger)
+    if protein_name is None:
         return False
 
     unique_json_path_set = set([p.resolve() for p in json_path_list])
@@ -61,7 +62,7 @@ def run_integrate_service(clean_report_path: str | Path,input_dir: str | Path,ou
 
     clean_output_type = get_supported_output_type(clean_report_data, logger)
     if clean_output_type != "enzywizard_clean":
-        logger.print(f"[ERROR] clean_report_path must point to an enzywizard_clean JSON file: {clean_report_path}")
+        logger.print(f"[ERROR] clean report in input_dir must be an enzywizard_clean JSON file: {clean_report_path}")
         return False
 
     report_dict["enzywizard_clean"] = clean_report_data
@@ -92,7 +93,7 @@ def run_integrate_service(clean_report_path: str | Path,input_dir: str | Path,ou
         report_dict[output_type] = data
         logger.print(f"[INFO] Loaded report: {json_path.name} ({output_type})")
 
-    if strict and len(report_dict) != 12 and len(report_dict) != 11:
+    if strict and len(report_dict) != 12:
         logger.print(f"[ERROR] Strict mode requires exactly 12 report types, but got {len(report_dict)}.")
         return False
 

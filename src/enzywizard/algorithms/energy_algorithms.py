@@ -7,7 +7,7 @@ from openmm.app import PDBFile, PDBxFile,Modeller,ForceField,NoCutoff,HBonds
 from ..utils.logging_utils import Logger
 
 
-def compute_energy_terms(struct: PDBFile | PDBxFile, logger: Logger, minimize_energy: bool = True, minimization_iteration:int = 2000,force_field_file="charmm36.xml") -> Dict[str, float] | None:
+def compute_energy_terms(struct: PDBFile | PDBxFile, logger: Logger, minimize_energy: bool = True, minimization_iteration:int = 1000,force_field_file="charmm36.xml") -> Dict[str, float] | None:
 
 
     terms = [
