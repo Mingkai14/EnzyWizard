@@ -14,7 +14,7 @@ from ..utils.conservation_utils import load_msa_sto,load_msa_aligned_fasta,load_
 from typing import List, Dict,Any, Tuple
 import subprocess
 from rdkit import Chem
-from ..utils.substrate_utils import is_valid_mol_3d
+from ..utils.substrate_utils import is_valid_mol_3d, build_docked_mol_from_atom_info
 from Bio.PDB import StructureBuilder
 from Bio.PDB.Atom import Atom
 from Bio.PDB.Chain import Chain
@@ -22,6 +22,7 @@ from Bio.PDB.Model import Model
 from Bio.PDB.Residue import Residue
 import copy
 import numpy as np
+
 
 
 def file_exists(path: str | Path) -> bool:
@@ -508,6 +509,7 @@ def load_sdf_mol_3d(sdf_path: str | Path, logger: Logger) -> Chem.Mol | None:
         return None
 
 def write_docked_sdf_from_atom_info(original_mol_3d: Chem.Mol,docked_atom_info_list: List[Dict[str, Any]],sdf_path: str | Path,logger: Logger) -> Chem.Mol | None:
+
     if original_mol_3d is None or original_mol_3d.GetNumConformers() <= 0:
         logger.print("[ERROR] Invalid original Mol(3D).")
         return None
@@ -520,86 +522,12 @@ def write_docked_sdf_from_atom_info(original_mol_3d: Chem.Mol,docked_atom_info_l
         sdf_path = Path(sdf_path)
         sdf_path.parent.mkdir(parents=True, exist_ok=True)
 
-        atom_num = original_mol_3d.GetNumAtoms()
-
-        used_original_atom_index_set = set()
-        kept_original_atom_index_list: List[int] = []
-
-        for item in docked_atom_info_list:
-            if not isinstance(item, dict):
-                logger.print("[ERROR] Invalid atom item in docked_atom_info_list.")
-                return None
-
-            original_atom_index = int(item.get("original_atom_index", 0))
-
-            if original_atom_index <= 0 or original_atom_index > atom_num:
-                logger.print("[ERROR] Invalid original atom index in docked_atom_info_list.")
-                return None
-
-            if original_atom_index in used_original_atom_index_set:
-                logger.print("[ERROR] Duplicate original atom index in docked_atom_info_list.")
-                return None
-
-            used_original_atom_index_set.add(original_atom_index)
-            kept_original_atom_index_list.append(original_atom_index)
-
-        kept_original_atom_index_list.sort()
-
-        old_to_new_index_dict: Dict[int, int] = {}
-        for new_index, old_index in enumerate(kept_original_atom_index_list):
-            old_to_new_index_dict[old_index] = new_index
-
-        rw_mol = Chem.RWMol()
-        new_conf = Chem.Conformer(len(kept_original_atom_index_list))
-
-        for old_index in kept_original_atom_index_list:
-            old_atom = original_mol_3d.GetAtomWithIdx(old_index - 1)
-
-            new_atom = Chem.Atom(old_atom.GetAtomicNum())
-            new_atom.SetFormalCharge(old_atom.GetFormalCharge())
-            new_atom.SetIsAromatic(old_atom.GetIsAromatic())
-            new_atom.SetChiralTag(old_atom.GetChiralTag())
-            new_atom.SetNoImplicit(old_atom.GetNoImplicit())
-            new_atom.SetNumExplicitHs(old_atom.GetNumExplicitHs())
-            new_atom.SetNumRadicalElectrons(old_atom.GetNumRadicalElectrons())
-
-            rw_mol.AddAtom(new_atom)
-
-        kept_old_index_set = set(kept_original_atom_index_list)
-
-        for bond in original_mol_3d.GetBonds():
-            begin_old_index = int(bond.GetBeginAtomIdx()) + 1
-            end_old_index = int(bond.GetEndAtomIdx()) + 1
-
-            if begin_old_index in kept_old_index_set and end_old_index in kept_old_index_set:
-                begin_new_index = old_to_new_index_dict[begin_old_index]
-                end_new_index = old_to_new_index_dict[end_old_index]
-                rw_mol.AddBond(begin_new_index, end_new_index, bond.GetBondType())
-
-        for item in docked_atom_info_list:
-            original_atom_index = int(item.get("original_atom_index", 0))
-            x = float(item.get("x", 0.0))
-            y = float(item.get("y", 0.0))
-            z = float(item.get("z", 0.0))
-
-            new_atom_index = old_to_new_index_dict[original_atom_index]
-            new_conf.SetAtomPosition(new_atom_index, (x, y, z))
-
-            original_atom_name = str(item.get("original_atom_name", "")).upper().strip()
-            new_atom = rw_mol.GetAtomWithIdx(new_atom_index)
-
-            if original_atom_name and new_atom.GetSymbol().upper() != original_atom_name:
-                logger.print("[ERROR] Atom name mismatch when writing docked SDF.")
-                return None
-
-        mol = rw_mol.GetMol()
-        mol.RemoveAllConformers()
-        mol.AddConformer(new_conf, assignId=True)
-
-        try:
-            Chem.SanitizeMol(mol)
-        except Exception:
-            logger.print("[ERROR] RDKit sanitize failed for docked ligand Mol.")
+        mol = build_docked_mol_from_atom_info(
+            original_mol_3d,
+            docked_atom_info_list,
+            logger
+        )
+        if mol is None:
             return None
 
         writer = Chem.SDWriter(str(sdf_path))
@@ -613,7 +541,7 @@ def write_docked_sdf_from_atom_info(original_mol_3d: Chem.Mol,docked_atom_info_l
         return mol
 
     except Exception:
-        logger.print(f"[ERROR] Failed to write docked atom information to SDF file")
+        logger.print("[ERROR] Failed to write docked atom information to SDF file")
         return None
 
 def write_docked_complex_from_mol_list(
