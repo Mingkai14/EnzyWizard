@@ -17,6 +17,7 @@ from .commands.interaction import add_interaction_parser
 from .commands.integrate import add_integrate_parser
 from .commands.mut_integrate import add_mut_integrate_parser
 from .commands.batch import add_batch_parser
+from .commands.mut_batch import add_mut_batch_parser
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -42,6 +43,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_integrate_parser(subparsers)
     add_mut_integrate_parser(subparsers)
     add_batch_parser(subparsers)
+    add_mut_batch_parser(subparsers)
 
     return parser
 
