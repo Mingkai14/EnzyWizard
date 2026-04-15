@@ -168,4 +168,4 @@ def normalize_aa_name_to_one_letter(aa_name: Any) -> str:
         aa_name_1 = protein_letters_3to1.get(aa_name_3)
         if isinstance(aa_name_1, str) and aa_name_1 != "":
             return aa_name_1.upper()
-    return aa_name
+    return "X"

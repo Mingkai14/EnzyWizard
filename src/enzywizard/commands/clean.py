@@ -3,7 +3,7 @@ from argparse import Namespace
 from ..services.clean_service import run_clean_service
 
 def add_clean_parser(subparsers) -> None:
-    parser = subparsers.add_parser("clean",help="Clean a CIF/PDB structure file.")
+    parser = subparsers.add_parser("clean",help="Clean protein structures, generate multi-format protein files (CIF, PDB, and FASTA), and provide a detailed traceable cleaning report.")
     parser.add_argument("-i","--input_path", required=True, help="Path to input CIF/PDB file.")
     parser.add_argument("-o","--output_dir", required=True, help="Path to a directory for outputting cleaned CIF, PDB, and FASTA files and a JSON report.")
     parser.add_argument("--no_add_H",action="store_false",dest="add_H",help="Disable adding hydrogens using OpenMM (default: enabled).")
@@ -15,20 +15,22 @@ def run_clean(args: Namespace) -> None:
     run_clean_service(input_path=args.input_path, output_dir=args.output_dir, add_H=args.add_H, pH=args.pH)
 
 
+
 # ==============================
 # Command: enzywizard-clean
 # ==============================
 
 # brief introduction:
 '''
-EnzyWizard-Clean is a command-line tool for cleaning an input protein structure
-file in CIF or PDB format. It standardizes residue names, removes problematic
-residues (non-standard residues, residues with missing backbone atoms,
-residues with incomplete heavy atoms, residues with invalid occupancy), 
-repairs residue order by renumbering residues continuously, converts the 
-structure into a cleaned protein chain, optionally
-adds hydrogens using OpenMM, and outputs cleaned structure files together with
-a JSON report summarizing residue mapping and cleaning statistics.
+EnzyWizard-Clean is a command-line tool for cleaning protein structures, generating 
+multi-format protein files (CIF, PDB, and FASTA), and providing a detailed traceable
+cleaning report. It standardizes residue names, removes problematic residues 
+(non-standard residues, residues with missing backbone atoms, residues with 
+missing required heavy atoms, residues with unexpected heavy atoms, residues 
+with invalid occupancy), repairs residue order by renumbering residues continuously,
+converts the structure into a cleaned protein chain, optionally adds hydrogens 
+using OpenMM, and outputs cleaned structure files together with a JSON report 
+summarizing residue mapping and cleaning statistics.
 
 '''
 
@@ -61,7 +63,6 @@ pH value used for hydrogen addition.
 Default: 7.0
 Valid range: 0.0 to 14.0
 '''
-
 
 # output content:
 '''
@@ -122,8 +123,11 @@ The program outputs the following files into the output directory:
        Number of residues removed because one or more required heavy atoms
        were missing.
 
+     - "removed_unexpected_heavy_atoms"
+       Number of residues removed because unexpected heavy atoms were present.
+
      - "removed_bad_occ"
-       Number of residues removed because selected key atoms had invalid occupancy.
+       Number of residues removed because selected atoms had invalid occupancy.
 
      - "removed_inscodes"
        Number of residues whose original insertion codes were present and then removed
@@ -147,13 +151,15 @@ This command processes the input protein structure as follows:
 
 3. Clean the structure (Biopython-based processing)
    - Extract a single chain using Biopython structure utilities.
-   - Standardize non-standard residues using the internal MODRES mapping (wwPDB Chemical Component Dictionary).
+   - Standardize residue names using the MODRES mapping.
    - Remove residues with missing backbone atoms (N, CA, C).
    - Remove residues with missing required heavy atoms.
+   - Remove residues with unexpected heavy atoms.
    - Remove residues with invalid occupancy values.
    - Remove insertion codes.
    - Repair discontinuous residue numbering by rebuilding residue indices.
    - Renumber all kept residues continuously starting from 1.
+   - Rebuild the output structure as a single chain with chain ID A.
 
 4. Optionally add hydrogens
    - Convert the cleaned Biopython structure into an OpenMM object.
@@ -174,7 +180,6 @@ This command processes the input protein structure as follows:
 - Biopython
 - OpenMM
 - NumPy
-- MODRES residue-name mapping table
 '''
 
 # references:
