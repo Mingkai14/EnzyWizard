@@ -11,7 +11,6 @@ from ..utils.mut_integrate_utils import (
     save_mut_integrate_json,
     split_integrated_graph_entries,
 )
-from ..algorithms.substrate_algorithms import get_substrate_dict_list_from_input
 
 
 def validate_mut_batch_parameter_ranges(

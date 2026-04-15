@@ -8,7 +8,8 @@ def add_mut_integrate_parser(subparsers) -> None:
     parser.add_argument("-i","--mut_clean_report_path",required=True,help="Path to the required mut_clean report JSON file.",)
     parser.add_argument("-w","--wt_input_dir",required=True,help="Path to a directory containing wild-type JSON reports to integrate.",)
     parser.add_argument("-m","--mut_input_dir",required=True,help="Path to a directory containing mutant JSON reports to integrate.",)
-    parser.add_argument("-o","--output_dir",required=True,help="Path to output directory for mut-integrated JSON files.",)
+    parser.add_argument("-wo","--wt_output_dir", required=True,help="Path to wild-type output directory for mut_integrated JSON files.", )
+    parser.add_argument("-mo","--mut_output_dir", required=True,help="Path to mutant output directory for mut_integrated JSON files.", )
     parser.add_argument("--strict",type=lambda x: str(x).lower() in ["true", "1", "yes"],default=False,help="Whether to require all report types on both wild-type and mutant sides (True/False, default: False).",)
     parser.set_defaults(func=run_mut_integrate)
 
@@ -18,6 +19,7 @@ def run_mut_integrate(args: Namespace) -> None:
         mutclean_report_path=args.mut_clean_report_path,
         wt_input_dir=args.wt_input_dir,
         mut_input_dir=args.mut_input_dir,
-        output_dir=args.output_dir,
+        wt_output_dir=args.wt_output_dir,
+        mut_output_dir=args.mut_output_dir,
         strict=args.strict,
     )

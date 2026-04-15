@@ -83,12 +83,11 @@ def run_mut_batch_service(
             wt_working_output_dir = wt_output_dir
             mut_working_output_dir = mut_output_dir
 
-        wt_logger = Logger(wt_working_output_dir)
-        mut_logger = Logger(mut_working_output_dir)
+        logger = Logger(wt_working_output_dir)
 
         has_substrate = isinstance(substrate_names, str) and substrate_names.strip() != ""
 
-        wt_logger.print(
+        logger.print(
             f"[INFO] Mut_batch processing started: "
             f"wt_cleaned_input_path={wt_cleaned_input_path}, "
             f"mut_cleaned_input_path={mut_cleaned_input_path}, "
@@ -99,66 +98,65 @@ def run_mut_batch_service(
         )
 
         if has_substrate:
-            wt_logger.print("[INFO] Substrate input detected. Full mut_batch workflow will be executed.")
+            logger.print("[INFO] Substrate input detected. Full mut_batch workflow will be executed.")
+
 
         if not file_exists(wt_cleaned_input_path):
-            wt_logger.print(f"[ERROR] WT cleaned input file not found: {wt_cleaned_input_path}")
+            logger.print(f"[ERROR] WT cleaned input file not found: {wt_cleaned_input_path}")
             return False
 
         if not file_exists(mut_cleaned_input_path):
-            mut_logger.print(f"[ERROR] MUT cleaned input file not found: {mut_cleaned_input_path}")
+            logger.print(f"[ERROR] MUT cleaned input file not found: {mut_cleaned_input_path}")
             return False
 
         if not file_exists(wt_input_msa):
-            wt_logger.print(f"[ERROR] WT input MSA file not found: {wt_input_msa}")
+            logger.print(f"[ERROR] WT input MSA file not found: {wt_input_msa}")
             return False
 
         if not file_exists(mut_input_msa):
-            mut_logger.print(f"[ERROR] MUT input MSA file not found: {mut_input_msa}")
+            logger.print(f"[ERROR] MUT input MSA file not found: {mut_input_msa}")
             return False
 
         if wt_output_dir.resolve() == mut_output_dir.resolve():
-            wt_logger.print("[ERROR] wt_output_dir and mut_output_dir must be different directories.")
+            logger.print("[ERROR] wt_output_dir and mut_output_dir must be different directories.")
             return False
 
-
-
         if not amino_acid_substitution or not str(amino_acid_substitution).strip():
-            wt_logger.print("[ERROR] amino_acid_substitution is empty.")
+            logger.print("[ERROR] amino_acid_substitution is empty.")
             return False
 
         wt_protein_name = get_stem(wt_cleaned_input_path)
-        if not check_filename_length(wt_protein_name, wt_logger):
+        if not check_filename_length(wt_protein_name, logger):
             return False
 
         mut_protein_name = get_stem(mut_cleaned_input_path)
-        if not check_filename_length(mut_protein_name, mut_logger):
+        if not check_filename_length(mut_protein_name, logger):
             return False
 
         if wt_protein_name == mut_protein_name:
-            wt_logger.print(
+            logger.print(
                 f"[ERROR] Wild-type and mutant protein names are the same: {wt_protein_name}"
             )
             return False
 
         wt_msa_name = get_stem(wt_input_msa)
-        if not check_filename_length(wt_msa_name, wt_logger):
+        if not check_filename_length(wt_msa_name, logger):
             return False
 
         mut_msa_name = get_stem(mut_input_msa)
-        if not check_filename_length(mut_msa_name, mut_logger):
+        if not check_filename_length(mut_msa_name, logger):
             return False
 
-        wt_logger.print(
+        logger.print(
             f"[INFO] Protein names resolved: wt={wt_protein_name}, mut={mut_protein_name}"
         )
-        wt_logger.print(
+        logger.print(
             f"[INFO] MSA names resolved: wt={wt_msa_name}, mut={mut_msa_name}"
         )
 
 
         if not validate_mut_batch_parameter_ranges(
-                logger=wt_logger,
+                logger=logger,
                 cutoff_area=cutoff_area,
                 minimize_energy=minimize_energy,
                 minimization_iteration=minimization_iteration,
@@ -208,8 +206,7 @@ def run_mut_batch_service(
             mut_msa_name=mut_msa_name,
             wt_output_dir=wt_working_output_dir,
             mut_output_dir=mut_working_output_dir,
-            wt_logger=wt_logger,
-            mut_logger=mut_logger,
+            logger=logger,
             save_extra_outputs=save_extra_outputs,
             cutoff_area=cutoff_area,
             minimize_energy=minimize_energy,
@@ -255,20 +252,20 @@ def run_mut_batch_service(
 
         mut_integrate_report = batch_result.get("mut_integrate_report")
         if not isinstance(mut_integrate_report, dict):
-            wt_logger.print("[ERROR] Missing mut_integrate_report in mut_batch result.")
+            logger.print("[ERROR] Missing mut_integrate_report in mut_batch result.")
             return False
 
         if not save_mut_batch_integrate_outputs(
-            mut_integrate_report=mut_integrate_report,
-            wt_output_dir=wt_working_output_dir,
-            mut_output_dir=mut_working_output_dir,
-            wt_protein_name=wt_protein_name,
-            mut_protein_name=mut_protein_name,
-            logger=wt_logger,
+                mut_integrate_report=mut_integrate_report,
+                wt_output_dir=wt_working_output_dir,
+                mut_output_dir=mut_working_output_dir,
+                wt_protein_name=wt_protein_name,
+                mut_protein_name=mut_protein_name,
+                logger=logger,
         ):
             return False
 
-        wt_logger.print("[INFO] Mut_batch processing finished")
+        logger.print("[INFO] Mut_batch processing finished")
 
         if not save_extra_outputs:
             report_filename = get_optimized_filename(
@@ -284,10 +281,20 @@ def run_mut_batch_service(
                 if src_path.exists():
                     shutil.copy2(src_path, wt_output_dir / filename)
 
-            for filename in [report_filename, mut_nodes_filename, mut_edges_filename, "log.txt"]:
+            for filename in [report_filename, mut_nodes_filename, mut_edges_filename]:
                 src_path = mut_working_output_dir / filename
                 if src_path.exists():
                     shutil.copy2(src_path, mut_output_dir / filename)
+
+        wt_log_path = wt_output_dir / "log.txt"
+        mut_log_path = mut_output_dir / "log.txt"
+
+        if wt_log_path.exists():
+            try:
+                shutil.copy2(wt_log_path, mut_log_path)
+            except Exception as e:
+                logger.print(f"[ERROR] Failed to copy log.txt to mut_output_dir: {e}")
+                return False
 
         return True
 

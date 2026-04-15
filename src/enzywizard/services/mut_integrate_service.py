@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Dict, Any
+import shutil
 
 from ..utils.logging_utils import Logger
 from ..utils.IO_utils import file_exists
@@ -21,14 +22,25 @@ from ..utils.mut_integrate_utils import (
 from ..algorithms.mut_integrate_algorithms import integrate_mut_reports
 
 
-def run_mut_integrate_service(mutclean_report_path: str | Path,wt_input_dir: str | Path,mut_input_dir: str | Path,output_dir: str | Path,strict: bool = False) -> bool:
-    logger = Logger(output_dir)
-    logger.print(f"[INFO] Mut_integrate processing started: mut_clean_report={mutclean_report_path}, wt_input_dir={wt_input_dir}, mut_input_dir={mut_input_dir}")
+def run_mut_integrate_service(mutclean_report_path: str | Path,wt_input_dir: str | Path,mut_input_dir: str | Path,wt_output_dir: str | Path,mut_output_dir: str | Path,strict: bool = False) -> bool:
+    wt_output_dir = Path(wt_output_dir)
+    mut_output_dir = Path(mut_output_dir)
 
+    wt_output_dir.mkdir(parents=True, exist_ok=True)
+    mut_output_dir.mkdir(parents=True, exist_ok=True)
+
+    logger = Logger(wt_output_dir)
+    logger.print(
+        f"[INFO] Mut_integrate processing started: "
+        f"mut_clean_report={mutclean_report_path}, "
+        f"wt_input_dir={wt_input_dir}, "
+        f"mut_input_dir={mut_input_dir}, "
+        f"wt_output_dir={wt_output_dir}, "
+        f"mut_output_dir={mut_output_dir}"
+    )
     mutclean_report_path = Path(mutclean_report_path)
     wt_input_dir = Path(wt_input_dir)
     mut_input_dir = Path(mut_input_dir)
-    output_dir = Path(output_dir)
 
     if not file_exists(mutclean_report_path):
         logger.print(f"[ERROR] mut_clean_report not found: {mutclean_report_path}")
@@ -42,7 +54,9 @@ def run_mut_integrate_service(mutclean_report_path: str | Path,wt_input_dir: str
         logger.print(f"[ERROR] Invalid mut_input_dir: {mut_input_dir}")
         return False
 
-    output_dir.mkdir(parents=True, exist_ok=True)
+    if wt_output_dir.resolve() == mut_output_dir.resolve():
+        logger.print("[ERROR] wt_output_dir and mut_output_dir must be different directories.")
+        return False
 
     protein_name_pair = extract_wt_mut_protein_names_from_mutclean_report_path(mutclean_report_path, logger)
     if protein_name_pair is None:
@@ -167,15 +181,22 @@ def run_mut_integrate_service(mutclean_report_path: str | Path,wt_input_dir: str
     mut_nodes_output_name = f"mut_integrate_nodes_{mut_protein_name}"
     mut_edges_output_name = f"mut_integrate_edges_{mut_protein_name}"
 
-    json_report_path = output_dir / get_optimized_filename(f"{report_output_name}.json")
-    wt_nodes_json_path = output_dir / get_optimized_filename(f"{wt_nodes_output_name}.json")
-    wt_edges_json_path = output_dir / get_optimized_filename(f"{wt_edges_output_name}.json")
-    mut_nodes_json_path = output_dir / get_optimized_filename(f"{mut_nodes_output_name}.json")
-    mut_edges_json_path = output_dir / get_optimized_filename(f"{mut_edges_output_name}.json")
+    wt_report_json_path = wt_output_dir / get_optimized_filename(f"{report_output_name}.json")
+    mut_report_json_path = mut_output_dir / get_optimized_filename(f"{report_output_name}.json")
 
-    if not save_mut_integrate_json(mut_integrate_report, json_report_path, logger):
+    wt_nodes_json_path = wt_output_dir / get_optimized_filename(f"{wt_nodes_output_name}.json")
+    wt_edges_json_path = wt_output_dir / get_optimized_filename(f"{wt_edges_output_name}.json")
+
+    mut_nodes_json_path = mut_output_dir / get_optimized_filename(f"{mut_nodes_output_name}.json")
+    mut_edges_json_path = mut_output_dir / get_optimized_filename(f"{mut_edges_output_name}.json")
+
+    if not save_mut_integrate_json(mut_integrate_report, wt_report_json_path, logger):
         return False
-    logger.print(f"[INFO] Mut_integrate report JSON saved: {json_report_path}")
+    logger.print(f"[INFO] Mut_integrate report JSON saved: {wt_report_json_path}")
+
+    if not save_mut_integrate_json(mut_integrate_report, mut_report_json_path, logger):
+        return False
+    logger.print(f"[INFO] Mut_integrate report JSON saved: {mut_report_json_path}")
 
     wt_integrated_graph = mut_integrate_report.get("wt_integrated_graph")
     if not isinstance(wt_integrated_graph, list):
@@ -214,4 +235,15 @@ def run_mut_integrate_service(mutclean_report_path: str | Path,wt_input_dir: str
     logger.print(f"[INFO] MUT edge list JSON saved: {mut_edges_json_path}")
 
     logger.print("[INFO] Mut_integrate processing finished")
+
+    wt_log_path = wt_output_dir / "log.txt"
+    mut_log_path = mut_output_dir / "log.txt"
+
+    if wt_log_path.exists():
+        try:
+            shutil.copy2(wt_log_path, mut_log_path)
+        except Exception as e:
+            logger.print(f"[ERROR] Failed to copy log.txt to mut_output_dir: {e}")
+            return False
+
     return True

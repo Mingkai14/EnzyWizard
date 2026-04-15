@@ -431,8 +431,7 @@ def run_mut_batch_workflow(
     mut_msa_name: str,
     wt_output_dir: str | Path,
     mut_output_dir: str | Path,
-    wt_logger: Logger,
-    mut_logger: Logger,
+    logger: Logger,
     save_extra_outputs: bool = False,
     cutoff_area: float = 10.0,
     minimize_energy: bool = True,
@@ -484,54 +483,54 @@ def run_mut_batch_workflow(
     wt_output_dir.mkdir(parents=True, exist_ok=True)
     mut_output_dir.mkdir(parents=True, exist_ok=True)
 
-    wt_logger.print("[INFO] Mut_batch workflow started")
+    logger.print("[INFO] Mut_batch workflow started")
 
     try:
-        wt_structure = load_protein_structure(wt_cleaned_input_path, wt_protein_name, wt_logger)
+        wt_structure = load_protein_structure(wt_cleaned_input_path, wt_protein_name, logger)
     except Exception:
         wt_structure = None
 
     try:
-        mut_structure = load_protein_structure(mut_cleaned_input_path, mut_protein_name, mut_logger)
+        mut_structure = load_protein_structure(mut_cleaned_input_path, mut_protein_name, logger)
     except Exception:
         mut_structure = None
 
     if wt_structure is None:
-        wt_logger.print(f"[ERROR] Failed to load WT structure: {wt_cleaned_input_path}")
+        logger.print(f"[ERROR] Failed to load WT structure: {wt_cleaned_input_path}")
         return None
 
     if mut_structure is None:
-        mut_logger.print(f"[ERROR] Failed to load MUT structure: {mut_cleaned_input_path}")
+        logger.print(f"[ERROR] Failed to load MUT structure: {mut_cleaned_input_path}")
         return None
 
-    if not check_cleaned_structure(wt_structure, wt_logger):
-        wt_logger.print("[ERROR] WT input structure is not a valid cleaned structure.")
+    if not check_cleaned_structure(wt_structure, logger):
+        logger.print("[ERROR] WT input structure is not a valid cleaned structure.")
         return None
 
-    if not check_cleaned_structure(mut_structure, mut_logger):
-        mut_logger.print("[ERROR] MUT input structure is not a valid cleaned structure.")
+    if not check_cleaned_structure(mut_structure, logger):
+        logger.print("[ERROR] MUT input structure is not a valid cleaned structure.")
         return None
 
-    if not structure_has_hydrogen(wt_structure, wt_logger):
-        wt_logger.print("[ERROR] WT input cleaned structure does not contain hydrogen atoms.")
+    if not structure_has_hydrogen(wt_structure, logger):
+        logger.print("[ERROR] WT input cleaned structure does not contain hydrogen atoms.")
         return None
 
-    if not structure_has_hydrogen(mut_structure, mut_logger):
-        mut_logger.print("[ERROR] MUT input cleaned structure does not contain hydrogen atoms.")
+    if not structure_has_hydrogen(mut_structure, logger):
+        logger.print("[ERROR] MUT input cleaned structure does not contain hydrogen atoms.")
         return None
 
-    wt_chain = get_single_chain(wt_structure, wt_logger)
-    mut_chain = get_single_chain(mut_structure, mut_logger)
+    wt_chain = get_single_chain(wt_structure, logger)
+    mut_chain = get_single_chain(mut_structure, logger)
     if wt_chain is None or mut_chain is None:
         return None
 
-    wt_seq_length = get_chain_length(wt_chain, wt_logger)
-    mut_seq_length = get_chain_length(mut_chain, mut_logger)
+    wt_seq_length = get_chain_length(wt_chain, logger)
+    mut_seq_length = get_chain_length(mut_chain, logger)
     if wt_seq_length is None or mut_seq_length is None:
         return None
 
     if wt_seq_length != mut_seq_length:
-        wt_logger.print(
+        logger.print(
             f"[ERROR] WT and MUT sequence lengths are not equal: {wt_seq_length} vs {mut_seq_length}"
         )
         return None
@@ -540,56 +539,56 @@ def run_mut_batch_workflow(
         amino_acid_substitution,
         wt_length=wt_seq_length,
         mut_length=mut_seq_length,
-        logger=wt_logger,
+        logger=logger,
     ):
         return None
 
-    wt_clean_result = clean_structure_to_single_chain_A(wt_structure, wt_logger)
+    wt_clean_result = clean_structure_to_single_chain_A(wt_structure, logger)
     if wt_clean_result is None:
         return None
     wt_cleaned_structure, wt_mapping_old_to_new, wt_clean_stats = wt_clean_result
 
-    mut_clean_result = clean_structure_to_single_chain_A(mut_structure, mut_logger)
+    mut_clean_result = clean_structure_to_single_chain_A(mut_structure, logger)
     if mut_clean_result is None:
         return None
     mut_cleaned_structure, mut_mapping_old_to_new, mut_clean_stats = mut_clean_result
 
-    if not check_cleaned_structure(wt_cleaned_structure, wt_logger):
+    if not check_cleaned_structure(wt_cleaned_structure, logger):
         return None
 
-    if not check_cleaned_structure(mut_cleaned_structure, mut_logger):
+    if not check_cleaned_structure(mut_cleaned_structure, logger):
         return None
 
     if not validate_clean_mapping_coordinates(
-        wt_structure, wt_cleaned_structure, wt_mapping_old_to_new, wt_logger
+        wt_structure, wt_cleaned_structure, wt_mapping_old_to_new, logger
     ):
         return None
 
     if not validate_clean_mapping_coordinates(
-        mut_structure, mut_cleaned_structure, mut_mapping_old_to_new, mut_logger
+        mut_structure, mut_cleaned_structure, mut_mapping_old_to_new, logger
     ):
         return None
 
-    if not structure_has_hydrogen(wt_cleaned_structure, wt_logger):
-        wt_logger.print("[ERROR] WT structure does not contain hydrogen atoms.")
+    if not structure_has_hydrogen(wt_cleaned_structure, logger):
+        logger.print("[ERROR] WT structure does not contain hydrogen atoms.")
         return None
 
-    if not structure_has_hydrogen(mut_cleaned_structure, mut_logger):
-        mut_logger.print("[ERROR] MUT structure does not contain hydrogen atoms.")
+    if not structure_has_hydrogen(mut_cleaned_structure, logger):
+        logger.print("[ERROR] MUT structure does not contain hydrogen atoms.")
         return None
 
-    wt_cleaned_chain = get_single_chain(wt_cleaned_structure, wt_logger)
-    mut_cleaned_chain = get_single_chain(mut_cleaned_structure, mut_logger)
+    wt_cleaned_chain = get_single_chain(wt_cleaned_structure, logger)
+    mut_cleaned_chain = get_single_chain(mut_cleaned_structure, logger)
     if wt_cleaned_chain is None or mut_cleaned_chain is None:
         return None
 
-    wt_cleaned_length = get_chain_length(wt_cleaned_chain, wt_logger)
-    mut_cleaned_length = get_chain_length(mut_cleaned_chain, mut_logger)
+    wt_cleaned_length = get_chain_length(wt_cleaned_chain, logger)
+    mut_cleaned_length = get_chain_length(mut_cleaned_chain, logger)
     if wt_cleaned_length is None or mut_cleaned_length is None:
         return None
 
     if wt_cleaned_length != mut_cleaned_length:
-        wt_logger.print(
+        logger.print(
             f"[ERROR] Cleaned WT and MUT sequence lengths are not equal: "
             f"{wt_cleaned_length} vs {mut_cleaned_length}"
         )
@@ -599,7 +598,7 @@ def run_mut_batch_workflow(
         wt_mapping_old_to_new=wt_mapping_old_to_new,
         mut_mapping_old_to_new=mut_mapping_old_to_new,
         mutation=amino_acid_substitution,
-        logger=wt_logger,
+        logger=logger,
     )
     if cleaned_amino_acid_substitution is None:
         return None
@@ -609,7 +608,7 @@ def run_mut_batch_workflow(
         wt_cleaned_structure,
         wt_mapping_old_to_new,
         wt_clean_stats,
-        wt_logger,
+        logger,
     )
     if wt_clean_report is None:
         return None
@@ -619,7 +618,7 @@ def run_mut_batch_workflow(
         mut_cleaned_structure,
         mut_mapping_old_to_new,
         mut_clean_stats,
-        mut_logger,
+        logger,
     )
     if mut_clean_report is None:
         return None
@@ -635,7 +634,7 @@ def run_mut_batch_workflow(
         wt_stats=wt_clean_stats,
         mut_mapping_old_to_new=mut_mapping_old_to_new,
         mut_stats=mut_clean_stats,
-        logger=wt_logger,
+        logger=logger,
     )
     if mutclean_report is None:
         return None
@@ -644,14 +643,14 @@ def run_mut_batch_workflow(
     substrate_report: Dict[str, Any] | None = None
 
     if has_substrate:
-        wt_logger.print("[INFO] Substrate generation started")
-        substrate_dict_list = get_substrate_dict_list_from_input(substrate_names, wt_logger)
+        logger.print("[INFO] Substrate generation started")
+        substrate_dict_list = get_substrate_dict_list_from_input(substrate_names, logger)
         if substrate_dict_list is None:
             return None
 
         substrate_dict_list = get_completed_smiles_list(
             substrate_dict_list,
-            wt_logger,
+            logger,
             max_synonyms=max_synonyms,
         )
         if substrate_dict_list is None:
@@ -659,7 +658,7 @@ def run_mut_batch_workflow(
 
         substrate_feature_list = get_substrate_feature_list(
             substrate_dict_list,
-            wt_logger,
+            logger,
             fp_radius=fp_radius,
             n_bits=n_bits,
             num_confs=num_confs,
@@ -670,19 +669,19 @@ def run_mut_batch_workflow(
 
         resolved_substrate_names = ",".join(item["substrate_name"] for item in substrate_dict_list)
 
-        if not save_substrate_structures(substrate_feature_list, wt_output_dir, wt_logger):
+        if not save_substrate_structures(substrate_feature_list, wt_output_dir, logger):
             return None
-        wt_logger.print(f"[INFO] Substrate structures saved to WT side: {wt_output_dir}")
+        logger.print(f"[INFO] Substrate structures saved to WT side: {wt_output_dir}")
 
-        if not copy_substrate_sdf_files(wt_output_dir, mut_output_dir, resolved_substrate_names, wt_logger):
+        if not copy_substrate_sdf_files(wt_output_dir, mut_output_dir, resolved_substrate_names, logger):
             return None
-        wt_logger.print(f"[INFO] Substrate structures copied to MUT side: {mut_output_dir}")
+        logger.print(f"[INFO] Substrate structures copied to MUT side: {mut_output_dir}")
 
-        substrate_report = generate_substrate_report(substrate_feature_list, wt_logger)
+        substrate_report = generate_substrate_report(substrate_feature_list, logger)
         if substrate_report is None:
             return None
     else:
-        wt_logger.print(
+        logger.print(
             "[INFO] No substrate input detected. Substrate generation and substrate SDF copy will be skipped on both sides.")
 
     wt_report_dict = _run_mut_batch_side_workflow(
@@ -695,7 +694,7 @@ def run_mut_batch_workflow(
         substrate_names=resolved_substrate_names,
         substrate_report=substrate_report,
         substrate_dir=wt_output_dir if has_substrate else None,
-        logger=wt_logger,
+        logger=logger,
         cutoff_area=cutoff_area,
         minimize_energy=minimize_energy,
         minimization_iteration=minimization_iteration,
@@ -743,7 +742,7 @@ def run_mut_batch_workflow(
         substrate_names=resolved_substrate_names,
         substrate_report=substrate_report,
         substrate_dir=mut_output_dir if has_substrate else None,
-        logger=mut_logger,
+        logger=logger,
         cutoff_area=cutoff_area,
         minimize_energy=minimize_energy,
         minimization_iteration=minimization_iteration,
@@ -781,19 +780,19 @@ def run_mut_batch_workflow(
     if mut_report_dict is None:
         return None
 
-    wt_logger.print("[INFO] Mut_integrate workflow started")
+    logger.print("[INFO] Mut_integrate workflow started")
 
     mut_integrate_report = integrate_mut_reports(
         mutclean_report=mutclean_report,
         wt_report_dict=wt_report_dict,
         mut_report_dict=mut_report_dict,
         strict=has_substrate,
-        logger=wt_logger,
+        logger=logger,
     )
     if mut_integrate_report is None:
         return None
 
-    wt_logger.print("[INFO] Mut_batch workflow finished")
+    logger.print("[INFO] Mut_batch workflow finished")
 
 
     return {
