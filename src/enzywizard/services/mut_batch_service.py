@@ -17,7 +17,7 @@ def run_mut_batch_service(
     wt_input_msa: str | Path,
     mut_input_msa: str | Path,
     amino_acid_substitution: str,
-    substrate_names: str,
+    substrate_names: str | None,
     wt_output_dir: str | Path,
     mut_output_dir: str | Path,
     save_extra_outputs: bool = False,
@@ -86,6 +86,8 @@ def run_mut_batch_service(
         wt_logger = Logger(wt_working_output_dir)
         mut_logger = Logger(mut_working_output_dir)
 
+        has_substrate = isinstance(substrate_names, str) and substrate_names.strip() != ""
+
         wt_logger.print(
             f"[INFO] Mut_batch processing started: "
             f"wt_cleaned_input_path={wt_cleaned_input_path}, "
@@ -95,6 +97,9 @@ def run_mut_batch_service(
             f"substrate_names={substrate_names}, "
             f"amino_acid_substitution={amino_acid_substitution}"
         )
+
+        if has_substrate:
+            wt_logger.print("[INFO] Substrate input detected. Full mut_batch workflow will be executed.")
 
         if not file_exists(wt_cleaned_input_path):
             wt_logger.print(f"[ERROR] WT cleaned input file not found: {wt_cleaned_input_path}")
@@ -117,9 +122,6 @@ def run_mut_batch_service(
             return False
 
 
-        if not substrate_names or not str(substrate_names).strip():
-            wt_logger.print("[ERROR] substrate_names is empty.")
-            return False
 
         if not amino_acid_substitution or not str(amino_acid_substitution).strip():
             wt_logger.print("[ERROR] amino_acid_substitution is empty.")

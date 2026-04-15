@@ -10,7 +10,6 @@ from ..utils.batch_utils import build_batch_output_paths
 from ..utils.IO_utils import structure_to_pdbfile,load_dssp,load_msa,write_msa,write_hmm,save_substrate_structures,load_sdf_mol_3d
 
 from ..utils.sequence_utils import check_msa, clean_msa_to_sto
-from ..utils.substrate_utils import get_substrate_report_suffix_from_feature_list
 from ..utils.structure_utils import structure_has_hydrogen, get_fasta_dict_from_structure
 from ..utils.interaction_utils import filter_valid_docked_substrates
 
@@ -47,7 +46,7 @@ from ..utils.IO_utils import load_protein_structure
 def run_batch_workflow(
     cleaned_input_path: str | Path,
     input_msa: str | Path,
-    substrate_names: str,
+    substrate_names: str | None,
     protein_name: str,
     msa_name: str,
     output_dir: str | Path,
@@ -99,6 +98,8 @@ def run_batch_workflow(
     path_dict = build_batch_output_paths(protein_name=protein_name, msa_name=msa_name, output_dir=output_dir)
 
     report_dict: Dict[str, Dict[str, Any]] = {}
+
+    has_substrate = isinstance(substrate_names, str) and substrate_names.strip() != ""
 
     logger.print("[INFO] Batch workflow started from cleaned input structure")
 
@@ -280,114 +281,119 @@ def run_batch_workflow(
     pocket_report = generate_pocket_report(pocket_regions)
     report_dict["enzywizard_pocket"] = pocket_report
 
-    logger.print("[INFO] Substrate calculation started")
-    substrate_dict_list = get_substrate_dict_list_from_input(substrate_names, logger)
-    if substrate_dict_list is None:
-        return None
-
-    substrate_dict_list = get_completed_smiles_list(
-        substrate_dict_list,
-        logger,
-        max_synonyms=max_synonyms,
-    )
-    if substrate_dict_list is None:
-        return None
-
-    substrate_feature_list = get_substrate_feature_list(
-        substrate_dict_list,
-        logger,
-        fp_radius=fp_radius,
-        n_bits=n_bits,
-        num_confs=num_confs,
-        prune_rms=prune_rms,
-    )
-    if substrate_feature_list is None:
-        return None
-
-    resolved_substrate_names = ",".join(item["substrate_name"] for item in substrate_dict_list)
-
-    if not save_substrate_structures(substrate_feature_list, output_dir, logger):
-        return None
-    logger.print(f"[INFO] Substrate structures saved: {output_dir}")
-
-    substrate_report = generate_substrate_report(substrate_feature_list, logger)
-    if substrate_report is None:
-        return None
-    report_dict["enzywizard_substrate"] = substrate_report
-
-    suffix = get_substrate_report_suffix_from_feature_list(substrate_feature_list, logger)
-    if suffix is None:
-        return None
-    logger.print(f"[INFO] Substrate report suffix resolved: {suffix}")
-
-    logger.print("[INFO] Docking workflow started")
-    docking_result_list = dock_multiple_substrates_from_structure(
-        struct=cleaned_structure,
-        substrate_names=resolved_substrate_names,
-        substrate_dir=output_dir,
-        logger=logger,
-        max_docking_attempt_num=max_docking_attempt_num,
-        early_stop=early_stop,
-        exhaustiveness=exhaustiveness,
-        cpu=cpu,
-        min_rad=dock_min_rad,
-        max_rad=dock_max_rad,
-        min_volume=dock_min_volume,
-    )
-    if docking_result_list is None:
-        return None
-
-    dock_report = save_docking_results_and_generate_dock_report(
-        docking_result_list=docking_result_list,
-        struct=cleaned_structure,
-        protein_name=protein_name,
-        output_dir=output_dir,
-        logger=logger,
-    )
-    if dock_report is None:
-        return None
-    report_dict["enzywizard_dock"] = dock_report
-
-    logger.print("[INFO] Interaction workflow started")
-
     ligand_mol_list = []
     substrate_name_list = []
 
-    docking_result = docking_result_list[0]
-
-    for ligand in docking_result["docked_substrate_info_list"]:
-        substrate_name = ligand["substrate_name"]
-        atom_info_list = ligand["atom_info_list"]
-        source_sdf_path = ligand["source_sdf_path"]
-
-        original_mol = load_sdf_mol_3d(source_sdf_path, logger)
-        if original_mol is None:
+    if has_substrate:
+        logger.print("[INFO] Substrate calculation started")
+        substrate_dict_list = get_substrate_dict_list_from_input(substrate_names, logger)
+        if substrate_dict_list is None:
             return None
 
-        docked_mol = build_docked_mol_from_atom_info(
-            original_mol,
-            atom_info_list,
+        substrate_dict_list = get_completed_smiles_list(
+            substrate_dict_list,
             logger,
+            max_synonyms=max_synonyms,
         )
-        if docked_mol is None:
+        if substrate_dict_list is None:
             return None
 
-        ligand_mol_list.append(docked_mol)
-        substrate_name_list.append(substrate_name)
-    logger.print(f"[INFO] Loaded {len(ligand_mol_list)} docked substrate Mol(3D) object(s)")
+        substrate_feature_list = get_substrate_feature_list(
+            substrate_dict_list,
+            logger,
+            fp_radius=fp_radius,
+            n_bits=n_bits,
+            num_confs=num_confs,
+            prune_rms=prune_rms,
+        )
+        if substrate_feature_list is None:
+            return None
 
-    filtered = filter_valid_docked_substrates(
-        substrate_name_list=substrate_name_list,
-        ligand_mol_list=ligand_mol_list,
-        modeller=cleaned_modeller,
-        logger=logger,
-        docked_heavy_atom_distance_cutoff_A=docked_heavy_atom_distance_cutoff_A,
-    )
-    if filtered is None:
-        return None
+        resolved_substrate_names = ",".join(item["substrate_name"] for item in substrate_dict_list)
 
-    valid_substrate_name_list, valid_ligand_mol_list = filtered
-    logger.print(f"[INFO] Valid docked substrate count: {len(valid_ligand_mol_list)}")
+        if not save_substrate_structures(substrate_feature_list, output_dir, logger):
+            return None
+        logger.print(f"[INFO] Substrate structures saved: {output_dir}")
+
+        substrate_report = generate_substrate_report(substrate_feature_list, logger)
+        if substrate_report is None:
+            return None
+        report_dict["enzywizard_substrate"] = substrate_report
+
+
+        logger.print("[INFO] Docking workflow started")
+        docking_result_list = dock_multiple_substrates_from_structure(
+            struct=cleaned_structure,
+            substrate_names=resolved_substrate_names,
+            substrate_dir=output_dir,
+            logger=logger,
+            max_docking_attempt_num=max_docking_attempt_num,
+            early_stop=early_stop,
+            exhaustiveness=exhaustiveness,
+            cpu=cpu,
+            min_rad=dock_min_rad,
+            max_rad=dock_max_rad,
+            min_volume=dock_min_volume,
+        )
+        if docking_result_list is None:
+            return None
+
+        dock_report = save_docking_results_and_generate_dock_report(
+            docking_result_list=docking_result_list,
+            struct=cleaned_structure,
+            protein_name=protein_name,
+            output_dir=output_dir,
+            logger=logger,
+        )
+        if dock_report is None:
+            return None
+        report_dict["enzywizard_dock"] = dock_report
+
+        docking_result = docking_result_list[0]
+
+        for ligand in docking_result["docked_substrate_info_list"]:
+            substrate_name = ligand["substrate_name"]
+            atom_info_list = ligand["atom_info_list"]
+            source_sdf_path = ligand["source_sdf_path"]
+
+            original_mol = load_sdf_mol_3d(source_sdf_path, logger)
+            if original_mol is None:
+                return None
+
+            docked_mol = build_docked_mol_from_atom_info(
+                original_mol,
+                atom_info_list,
+                logger,
+            )
+            if docked_mol is None:
+                return None
+
+            ligand_mol_list.append(docked_mol)
+            substrate_name_list.append(substrate_name)
+
+        logger.print(f"[INFO] Loaded {len(ligand_mol_list)} docked substrate Mol(3D) object(s)")
+    else:
+        logger.print("[INFO] No substrate input detected. Skipping substrate and docking workflows.")
+
+    logger.print("[INFO] Interaction workflow started")
+
+    if has_substrate:
+        filtered = filter_valid_docked_substrates(
+            substrate_name_list=substrate_name_list,
+            ligand_mol_list=ligand_mol_list,
+            modeller=cleaned_modeller,
+            logger=logger,
+            docked_heavy_atom_distance_cutoff_A=docked_heavy_atom_distance_cutoff_A,
+        )
+        if filtered is None:
+            return None
+
+        valid_substrate_name_list, valid_ligand_mol_list = filtered
+        logger.print(f"[INFO] Valid docked substrate count: {len(valid_ligand_mol_list)}")
+    else:
+        valid_substrate_name_list = []
+        valid_ligand_mol_list = []
+        logger.print("[INFO] No substrate input detected. Only intra-protein interactions will be calculated.")
 
     interaction_list = calculate_all_interaction_network(
         modeller=cleaned_modeller,
@@ -424,7 +430,8 @@ def run_batch_workflow(
     report_dict["enzywizard_interaction"] = interaction_report
 
     logger.print("[INFO] Integrate workflow started")
-    integrate_report = integrate_reports(report_dict, True, logger)
+    integrate_strict = has_substrate
+    integrate_report = integrate_reports(report_dict, integrate_strict, logger)
     if integrate_report is None:
         return None
 

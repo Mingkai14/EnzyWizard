@@ -7,7 +7,7 @@ def add_batch_parser(subparsers) -> None:
     parser = subparsers.add_parser("batch",help="Run the full EnzyWizard workflow to obtain final integrated JSON outputs.")
     parser.add_argument("-i", "--cleaned_input_path",required=True,help="Path to input cleaned CIF/PDB file. The file needs to already be cleaned.")
     parser.add_argument("-m", "--input_msa",required=True,help="Path to input MSA file (STO/aligned FASTA/A3M format). The MSA file needs to be generated using the cleaned FASTA sequence.")
-    parser.add_argument("-s", "--substrate_names",required=True,help="Input substrate names or SMILES strings. Multiple substrates should be separated by ','.")
+    parser.add_argument("-s","--substrate_names",required=False,default=None,help="Optional substrate names or SMILES strings. Multiple substrates should be separated by ','. If not provided, substrate, dock, and protein-substrate interaction steps will be skipped.")
     parser.add_argument("-o", "--output_dir",required=True,help="Path to output directory. If --save_extra_outputs is False, only final integrate JSON files and log.txt will be kept here.")
     parser.add_argument("--save_extra_outputs",type=lambda x: str(x).lower() in ["true", "1", "yes"],default=False,help="Whether to keep extra output files such as HMM, substrate SDFs, docked SDFs, and complex CIF files (True/False, default: False).")
     parser.add_argument("--hydrocluster_cutoff",type=float,default=10.0,help="Minimum contact area cutoff for hydrophobic cluster residue-residue connection (default: 10.0).")

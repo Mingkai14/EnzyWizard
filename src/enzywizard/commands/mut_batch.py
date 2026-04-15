@@ -30,9 +30,11 @@ def add_mut_batch_parser(subparsers) -> None:
         help="Input amino acid substitution in mutation format such as A123V."
     )
     parser.add_argument(
-        "-s", "--substrate_names",
-        required=True,
-        help="Input substrate names or SMILES strings. Multiple substrates should be separated by ','."
+        "-s",
+        "--substrate_names",
+        required=False,
+        default=None,
+        help="Optional substrate names or SMILES strings. Multiple substrates should be separated by ','. If not provided, substrate, docking, and protein-substrate interaction steps will be skipped on both wild-type and mutant sides."
     )
     parser.add_argument(
         "--wt_output_dir",

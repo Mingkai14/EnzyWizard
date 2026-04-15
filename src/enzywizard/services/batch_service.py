@@ -14,7 +14,7 @@ from ..utils.common_utils import get_optimized_filename
 def run_batch_service(
     cleaned_input_path: str | Path,
     input_msa: str | Path,
-    substrate_names: str,
+    substrate_names: str | None,
     output_dir: str | Path,
     save_extra_outputs: bool = True,
     cutoff_area: float = 10.0,
@@ -71,9 +71,12 @@ def run_batch_service(
             working_output_dir = output_dir
 
         logger = Logger(working_output_dir)
-        logger.print(
-            f"[INFO] Batch processing started: cleaned_input_path={cleaned_input_path}, input_msa={input_msa}, substrate_names={substrate_names}"
-        )
+
+        has_substrate = isinstance(substrate_names, str) and substrate_names.strip() != ""
+
+        logger.print(f"[INFO] Batch processing started: cleaned_input_path={cleaned_input_path}, input_msa={input_msa}, substrate_names={substrate_names}")
+        if has_substrate:
+            logger.print("[INFO] Substrate input detected. Full batch workflow will be executed.")
 
         if not file_exists(cleaned_input_path):
             logger.print(f"[ERROR] Input cleaned protein file not found: {cleaned_input_path}")
@@ -81,10 +84,6 @@ def run_batch_service(
 
         if not file_exists(input_msa):
             logger.print(f"[ERROR] Input MSA file not found: {input_msa}")
-            return False
-
-        if not substrate_names or not str(substrate_names).strip():
-            logger.print("[ERROR] substrate_names is empty.")
             return False
 
         protein_name = get_stem(cleaned_input_path)

@@ -94,9 +94,9 @@ def _run_mut_batch_side_workflow(
     protein_name: str,
     msa_name: str,
     output_dir: str | Path,
-    substrate_names: str,
-    substrate_report: Dict[str, Any],
-    substrate_dir: str | Path,
+    substrate_names: str | None,
+    substrate_report: Dict[str, Any] | None,
+    substrate_dir: str | Path | None,
     logger: Logger,
     cutoff_area: float = 10.0,
     minimize_energy: bool = True,
@@ -134,10 +134,17 @@ def _run_mut_batch_side_workflow(
 ) -> Dict[str, Dict[str, Any]] | None:
     input_msa = Path(input_msa)
     output_dir = Path(output_dir)
-    substrate_dir = Path(substrate_dir)
+    substrate_dir = Path(substrate_dir) if substrate_dir is not None else None
 
     report_dict: Dict[str, Dict[str, Any]] = {}
     report_dict["enzywizard_clean"] = clean_report
+
+    has_substrate = (
+            isinstance(substrate_names, str)
+            and substrate_names.strip() != ""
+            and isinstance(substrate_report, dict)
+            and substrate_dir is not None
+    )
 
     if not check_cleaned_structure(cleaned_structure, logger):
         logger.print(f"[ERROR] Cleaned structure failed validation: {protein_name}")
@@ -289,81 +296,89 @@ def _run_mut_batch_side_workflow(
     pocket_report = generate_pocket_report(pocket_regions)
     report_dict["enzywizard_pocket"] = pocket_report
 
-    report_dict["enzywizard_substrate"] = substrate_report
+    if has_substrate:
+        report_dict["enzywizard_substrate"] = substrate_report
 
-    logger.print(f"[INFO] Docking workflow started: {protein_name}")
-    docking_result_list = dock_multiple_substrates_from_structure(
-        struct=cleaned_structure,
-        substrate_names=substrate_names,
-        substrate_dir=substrate_dir,
-        logger=logger,
-        max_docking_attempt_num=max_docking_attempt_num,
-        early_stop=early_stop,
-        exhaustiveness=exhaustiveness,
-        cpu=cpu,
-        min_rad=dock_min_rad,
-        max_rad=dock_max_rad,
-        min_volume=dock_min_volume,
-    )
-    if docking_result_list is None:
-        return None
 
-    dock_report = save_docking_results_and_generate_dock_report(
-        docking_result_list=docking_result_list,
-        struct=cleaned_structure,
-        protein_name=protein_name,
-        output_dir=output_dir,
-        logger=logger,
-    )
-    if dock_report is None:
-        return None
-    report_dict["enzywizard_dock"] = dock_report
+    if has_substrate:
+        logger.print(f"[INFO] Docking workflow started: {protein_name}")
+        docking_result_list = dock_multiple_substrates_from_structure(
+            struct=cleaned_structure,
+            substrate_names=substrate_names,
+            substrate_dir=substrate_dir,
+            logger=logger,
+            max_docking_attempt_num=max_docking_attempt_num,
+            early_stop=early_stop,
+            exhaustiveness=exhaustiveness,
+            cpu=cpu,
+            min_rad=dock_min_rad,
+            max_rad=dock_max_rad,
+            min_volume=dock_min_volume,
+        )
+        if docking_result_list is None:
+            return None
+
+        dock_report = save_docking_results_and_generate_dock_report(
+            docking_result_list=docking_result_list,
+            struct=cleaned_structure,
+            protein_name=protein_name,
+            output_dir=output_dir,
+            logger=logger,
+        )
+        if dock_report is None:
+            return None
+        report_dict["enzywizard_dock"] = dock_report
+
+        if len(docking_result_list) == 0:
+            logger.print(f"[ERROR] Empty docking_result_list for interaction workflow: {protein_name}")
+            return None
+
+        ligand_mol_list = []
+        substrate_name_list = []
+
+        docking_result = docking_result_list[0]
+
+        for ligand in docking_result["docked_substrate_info_list"]:
+            substrate_name = ligand["substrate_name"]
+            atom_info_list = ligand["atom_info_list"]
+            source_sdf_path = ligand["source_sdf_path"]
+
+            original_mol = load_sdf_mol_3d(source_sdf_path, logger)
+            if original_mol is None:
+                return None
+
+            docked_mol = build_docked_mol_from_atom_info(
+                original_mol,
+                atom_info_list,
+                logger,
+            )
+            if docked_mol is None:
+                return None
+
+            ligand_mol_list.append(docked_mol)
+            substrate_name_list.append(substrate_name)
+
+        logger.print(f"[INFO] Loaded {len(ligand_mol_list)} docked substrate Mol(3D) object(s): {protein_name}")
+
+        filtered = filter_valid_docked_substrates(
+            substrate_name_list=substrate_name_list,
+            ligand_mol_list=ligand_mol_list,
+            modeller=cleaned_modeller,
+            logger=logger,
+            docked_heavy_atom_distance_cutoff_A=docked_heavy_atom_distance_cutoff_A,
+        )
+        if filtered is None:
+            return None
+
+        valid_substrate_name_list, valid_ligand_mol_list = filtered
+        logger.print(f"[INFO] Valid docked substrate count: {len(valid_ligand_mol_list)} ({protein_name})")
+    else:
+        valid_substrate_name_list = []
+        valid_ligand_mol_list = []
+        logger.print(
+            f"[INFO] No substrate input detected. Only intra-protein interactions will be calculated: {protein_name}")
 
     logger.print(f"[INFO] Interaction workflow started: {protein_name}")
-
-    if len(docking_result_list) == 0:
-        logger.print(f"[ERROR] Empty docking_result_list for interaction workflow: {protein_name}")
-        return None
-
-    ligand_mol_list = []
-    substrate_name_list = []
-
-    docking_result = docking_result_list[0]
-
-    for ligand in docking_result["docked_substrate_info_list"]:
-        substrate_name = ligand["substrate_name"]
-        atom_info_list = ligand["atom_info_list"]
-        source_sdf_path = ligand["source_sdf_path"]
-
-        original_mol = load_sdf_mol_3d(source_sdf_path, logger)
-        if original_mol is None:
-            return None
-
-        docked_mol = build_docked_mol_from_atom_info(
-            original_mol,
-            atom_info_list,
-            logger,
-        )
-        if docked_mol is None:
-            return None
-
-        ligand_mol_list.append(docked_mol)
-        substrate_name_list.append(substrate_name)
-
-    logger.print(f"[INFO] Loaded {len(ligand_mol_list)} docked substrate Mol(3D) object(s): {protein_name}")
-
-    filtered = filter_valid_docked_substrates(
-        substrate_name_list=substrate_name_list,
-        ligand_mol_list=ligand_mol_list,
-        modeller=cleaned_modeller,
-        logger=logger,
-        docked_heavy_atom_distance_cutoff_A=docked_heavy_atom_distance_cutoff_A,
-    )
-    if filtered is None:
-        return None
-
-    valid_substrate_name_list, valid_ligand_mol_list = filtered
-    logger.print(f"[INFO] Valid docked substrate count: {len(valid_ligand_mol_list)} ({protein_name})")
 
     interaction_list = calculate_all_interaction_network(
         modeller=cleaned_modeller,
@@ -408,7 +423,7 @@ def run_mut_batch_workflow(
     mut_cleaned_input_path: str | Path,
     wt_input_msa: str | Path,
     mut_input_msa: str | Path,
-    substrate_names: str,
+    substrate_names: str | None,
     amino_acid_substitution: str,
     wt_protein_name: str,
     mut_protein_name: str,
@@ -464,6 +479,7 @@ def run_mut_batch_workflow(
     mut_input_msa = Path(mut_input_msa)
     wt_output_dir = Path(wt_output_dir)
     mut_output_dir = Path(mut_output_dir)
+    has_substrate = isinstance(substrate_names, str) and substrate_names.strip() != ""
 
     wt_output_dir.mkdir(parents=True, exist_ok=True)
     mut_output_dir.mkdir(parents=True, exist_ok=True)
@@ -624,43 +640,50 @@ def run_mut_batch_workflow(
     if mutclean_report is None:
         return None
 
-    wt_logger.print("[INFO] Substrate generation started")
-    substrate_dict_list = get_substrate_dict_list_from_input(substrate_names, wt_logger)
-    if substrate_dict_list is None:
-        return None
+    resolved_substrate_names: str | None = None
+    substrate_report: Dict[str, Any] | None = None
 
-    substrate_dict_list = get_completed_smiles_list(
-        substrate_dict_list,
-        wt_logger,
-        max_synonyms=max_synonyms,
-    )
-    if substrate_dict_list is None:
-        return None
+    if has_substrate:
+        wt_logger.print("[INFO] Substrate generation started")
+        substrate_dict_list = get_substrate_dict_list_from_input(substrate_names, wt_logger)
+        if substrate_dict_list is None:
+            return None
 
-    substrate_feature_list = get_substrate_feature_list(
-        substrate_dict_list,
-        wt_logger,
-        fp_radius=fp_radius,
-        n_bits=n_bits,
-        num_confs=num_confs,
-        prune_rms=prune_rms,
-    )
-    if substrate_feature_list is None:
-        return None
+        substrate_dict_list = get_completed_smiles_list(
+            substrate_dict_list,
+            wt_logger,
+            max_synonyms=max_synonyms,
+        )
+        if substrate_dict_list is None:
+            return None
 
-    resolved_substrate_names = ",".join(item["substrate_name"] for item in substrate_dict_list)
+        substrate_feature_list = get_substrate_feature_list(
+            substrate_dict_list,
+            wt_logger,
+            fp_radius=fp_radius,
+            n_bits=n_bits,
+            num_confs=num_confs,
+            prune_rms=prune_rms,
+        )
+        if substrate_feature_list is None:
+            return None
 
-    if not save_substrate_structures(substrate_feature_list, wt_output_dir, wt_logger):
-        return None
-    wt_logger.print(f"[INFO] Substrate structures saved to WT side: {wt_output_dir}")
+        resolved_substrate_names = ",".join(item["substrate_name"] for item in substrate_dict_list)
 
-    if not copy_substrate_sdf_files(wt_output_dir, mut_output_dir, resolved_substrate_names,wt_logger):
-        return None
-    wt_logger.print(f"[INFO] Substrate structures copied to MUT side: {mut_output_dir}")
+        if not save_substrate_structures(substrate_feature_list, wt_output_dir, wt_logger):
+            return None
+        wt_logger.print(f"[INFO] Substrate structures saved to WT side: {wt_output_dir}")
 
-    substrate_report = generate_substrate_report(substrate_feature_list, wt_logger)
-    if substrate_report is None:
-        return None
+        if not copy_substrate_sdf_files(wt_output_dir, mut_output_dir, resolved_substrate_names, wt_logger):
+            return None
+        wt_logger.print(f"[INFO] Substrate structures copied to MUT side: {mut_output_dir}")
+
+        substrate_report = generate_substrate_report(substrate_feature_list, wt_logger)
+        if substrate_report is None:
+            return None
+    else:
+        wt_logger.print(
+            "[INFO] No substrate input detected. Substrate generation and substrate SDF copy will be skipped on both sides.")
 
     wt_report_dict = _run_mut_batch_side_workflow(
         cleaned_structure=wt_cleaned_structure,
@@ -671,7 +694,7 @@ def run_mut_batch_workflow(
         output_dir=wt_output_dir,
         substrate_names=resolved_substrate_names,
         substrate_report=substrate_report,
-        substrate_dir=wt_output_dir,
+        substrate_dir=wt_output_dir if has_substrate else None,
         logger=wt_logger,
         cutoff_area=cutoff_area,
         minimize_energy=minimize_energy,
@@ -719,7 +742,7 @@ def run_mut_batch_workflow(
         output_dir=mut_output_dir,
         substrate_names=resolved_substrate_names,
         substrate_report=substrate_report,
-        substrate_dir=mut_output_dir,
+        substrate_dir=mut_output_dir if has_substrate else None,
         logger=mut_logger,
         cutoff_area=cutoff_area,
         minimize_energy=minimize_energy,
@@ -764,7 +787,7 @@ def run_mut_batch_workflow(
         mutclean_report=mutclean_report,
         wt_report_dict=wt_report_dict,
         mut_report_dict=mut_report_dict,
-        strict=True,
+        strict=has_substrate,
         logger=wt_logger,
     )
     if mut_integrate_report is None:
