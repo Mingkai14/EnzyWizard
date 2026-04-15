@@ -648,11 +648,13 @@ def run_mut_batch_workflow(
     if substrate_feature_list is None:
         return None
 
+    resolved_substrate_names = ",".join(item["substrate_name"] for item in substrate_dict_list)
+
     if not save_substrate_structures(substrate_feature_list, wt_output_dir, wt_logger):
         return None
     wt_logger.print(f"[INFO] Substrate structures saved to WT side: {wt_output_dir}")
 
-    if not copy_substrate_sdf_files(wt_output_dir, mut_output_dir, substrate_names,wt_logger):
+    if not copy_substrate_sdf_files(wt_output_dir, mut_output_dir, resolved_substrate_names,wt_logger):
         return None
     wt_logger.print(f"[INFO] Substrate structures copied to MUT side: {mut_output_dir}")
 
@@ -667,7 +669,7 @@ def run_mut_batch_workflow(
         protein_name=wt_protein_name,
         msa_name=wt_msa_name,
         output_dir=wt_output_dir,
-        substrate_names=substrate_names,
+        substrate_names=resolved_substrate_names,
         substrate_report=substrate_report,
         substrate_dir=wt_output_dir,
         logger=wt_logger,
@@ -715,7 +717,7 @@ def run_mut_batch_workflow(
         protein_name=mut_protein_name,
         msa_name=mut_msa_name,
         output_dir=mut_output_dir,
-        substrate_names=substrate_names,
+        substrate_names=resolved_substrate_names,
         substrate_report=substrate_report,
         substrate_dir=mut_output_dir,
         logger=mut_logger,

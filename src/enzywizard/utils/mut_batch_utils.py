@@ -91,7 +91,7 @@ def validate_mut_batch_parameter_ranges(
 def copy_substrate_sdf_files(
     source_dir: str | Path,
     target_dir: str | Path,
-    substrate_names: str,
+    resolved_substrate_names: str,
     logger: Logger,
 ) -> bool:
     source_dir = Path(source_dir)
@@ -101,8 +101,9 @@ def copy_substrate_sdf_files(
         logger.print(f"[ERROR] Invalid substrate source_dir: {source_dir}")
         return False
 
-    substrate_dict_list = get_substrate_dict_list_from_input(substrate_names, logger)
-    if substrate_dict_list is None:
+    substrate_name_list = [x.strip() for x in resolved_substrate_names.split(",") if x.strip()]
+    if len(substrate_name_list) == 0:
+        logger.print("[ERROR] substrate_names is empty after parsing.")
         return False
 
     target_dir.mkdir(parents=True, exist_ok=True)
@@ -110,10 +111,9 @@ def copy_substrate_sdf_files(
     copied_path_set = set()
     copied_count = 0
 
-    for item in substrate_dict_list:
-        substrate_name = item.get("substrate_name", "")
+    for substrate_name in substrate_name_list:
         if not isinstance(substrate_name, str) or substrate_name.strip() == "":
-            logger.print("[ERROR] Invalid substrate_name in substrate_dict_list.")
+            logger.print("[ERROR] Invalid substrate_name in substrate_names.")
             return False
         substrate_name = substrate_name.strip()
 

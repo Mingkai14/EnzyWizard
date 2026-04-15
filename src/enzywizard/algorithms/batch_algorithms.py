@@ -304,6 +304,8 @@ def run_batch_workflow(
     if substrate_feature_list is None:
         return None
 
+    resolved_substrate_names = ",".join(item["substrate_name"] for item in substrate_dict_list)
+
     if not save_substrate_structures(substrate_feature_list, output_dir, logger):
         return None
     logger.print(f"[INFO] Substrate structures saved: {output_dir}")
@@ -321,7 +323,7 @@ def run_batch_workflow(
     logger.print("[INFO] Docking workflow started")
     docking_result_list = dock_multiple_substrates_from_structure(
         struct=cleaned_structure,
-        substrate_names=substrate_names,
+        substrate_names=resolved_substrate_names,
         substrate_dir=output_dir,
         logger=logger,
         max_docking_attempt_num=max_docking_attempt_num,
