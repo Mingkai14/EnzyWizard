@@ -5,8 +5,20 @@ from ..utils.structure_utils import get_single_chain, get_residues_by_chain
 from Bio.PDB.Model import Model
 from Bio.PDB.Chain import Chain
 from typing import Dict, List, Tuple, Optional, Union
-from ..utils.clean_utils import standardize_resname, choose_atom_altloc, clone_atom
-from ..resources.aa_resources import AA3_STANDARD, AA3_REQUIRED_HEAVY_ATOMS
+from ..utils.clean_utils import (
+    standardize_resname,
+    choose_atom_altloc,
+    clone_atom,
+    normalize_atom_name,
+    is_hydrogen_atom,
+)
+from ..resources.aa_resources import (
+    AA3_STANDARD,
+    AA3_REQUIRED_HEAVY_ATOMS,
+    AA3_EXPECTED_HEAVY_ATOM_SET,
+    AA3_ALLOWED_HEAVY_ATOM_SET_WITH_OXT,
+    BACKBONE_REQUIRED_ATOMS,
+)
 from Bio.PDB.Atom import Atom
 from Bio.PDB.Residue import Residue
 from openmm.app import Modeller, ForceField, PDBFile
@@ -15,7 +27,7 @@ from ..utils.sequence_utils import normalize_aa_name_to_one_letter
 
 def clean_structure_to_single_chain_A(struct: Structure, logger: Logger) -> Tuple[Structure, Dict[Tuple[int, str, str], Tuple[int, str, str]], Dict[str, int]] | None:
     old_chain = get_single_chain(struct, logger)
-    if not old_chain:
+    if old_chain is None:
         return None
 
     new_struct = Structure(struct.id + "_cleaned")
@@ -31,6 +43,7 @@ def clean_structure_to_single_chain_A(struct: Structure, logger: Logger) -> Tupl
     changed_resname = 0
     removed_inscodes = 0
     removed_missing_heavy_atoms = 0
+    removed_unexpected_heavy_atoms = 0
 
     for res in old_chain.get_residues():
         hetflag, resseq, icode = res.id
@@ -45,23 +58,36 @@ def clean_structure_to_single_chain_A(struct: Structure, logger: Logger) -> Tupl
             continue
 
         atoms_by_name: Dict[str, List[Atom]] = {}
-        for atom in res.get_atoms():
-            atoms_by_name.setdefault(atom.get_name(), []).append(atom)
+        actual_heavy_atom_set = set()
 
-        required = ["N", "CA", "C"]
-        if any(rn not in atoms_by_name for rn in required):
+        for atom in res.get_atoms():
+            atom_name = normalize_atom_name(atom.get_name())
+            atoms_by_name.setdefault(atom_name, []).append(atom)
+
+            if not is_hydrogen_atom(atom):
+                actual_heavy_atom_set.add(atom_name)
+
+        if any(atom_name not in actual_heavy_atom_set for atom_name in BACKBONE_REQUIRED_ATOMS):
             removed_missing_bb += 1
             continue
 
-        required_heavy_atoms = AA3_REQUIRED_HEAVY_ATOMS.get(resname_std)
+        expected_heavy_atom_set = AA3_EXPECTED_HEAVY_ATOM_SET.get(resname_std)
+        if expected_heavy_atom_set is None:
+            removed_nonstd += 1
+            continue
 
-        if any(atom_name not in atoms_by_name for atom_name in required_heavy_atoms):
+        if not expected_heavy_atom_set.issubset(actual_heavy_atom_set):
             removed_missing_heavy_atoms += 1
             continue
 
+        allowed_heavy_atom_set = AA3_ALLOWED_HEAVY_ATOM_SET_WITH_OXT[resname_std]
+        if not actual_heavy_atom_set.issubset(allowed_heavy_atom_set):
+            removed_unexpected_heavy_atoms += 1
+            continue
+
         bad_occ = False
-        for rn in required:
-            chosen = choose_atom_altloc(atoms_by_name[rn])
+        for atom_name in BACKBONE_REQUIRED_ATOMS:
+            chosen = choose_atom_altloc(atoms_by_name[atom_name])
             occ = chosen.get_occupancy()
             if occ is not None and occ < 0:
                 bad_occ = True
@@ -95,6 +121,7 @@ def clean_structure_to_single_chain_A(struct: Structure, logger: Logger) -> Tupl
         "removed_nonstd": removed_nonstd,
         "removed_missing_bb": removed_missing_bb,
         "removed_missing_heavy_atoms": removed_missing_heavy_atoms,
+        "removed_unexpected_heavy_atoms": removed_unexpected_heavy_atoms,
         "removed_bad_occ": removed_bad_occ,
         "removed_inscodes": removed_inscodes,
         "kept_residues": new_resseq,
@@ -296,32 +323,52 @@ def check_cleaned_structure(struct: Structure, logger: Logger) -> bool:
 
         atoms_by_name: Dict[str, List[Atom]] = {}
         for atom in res.get_atoms():
-            atoms_by_name.setdefault(atom.get_name(), []).append(atom)
+            if is_hydrogen_atom(atom):
+                continue
 
-        required = ["N", "CA", "C"]
-        for rn in required:
-            if rn not in atoms_by_name:
-                logger.print(f"[ERROR] Missing backbone atom '{rn}' at residue {resseq}. Please run 'enzywizard clean' first.")
+            atom_name = normalize_atom_name(atom.get_name())
+            atoms_by_name.setdefault(atom_name, []).append(atom)
+
+        for atom_name in BACKBONE_REQUIRED_ATOMS:
+            if atom_name not in atoms_by_name:
+                logger.print(
+                    f"[ERROR] Missing backbone atom '{atom_name}' at residue {resseq}. Please run 'enzywizard clean' first.")
                 return False
 
-        for rn in required:
-            chosen = choose_atom_altloc(atoms_by_name[rn])
+        for atom_name in BACKBONE_REQUIRED_ATOMS:
+            chosen = choose_atom_altloc(atoms_by_name[atom_name])
             occ = chosen.get_occupancy()
             if occ is not None and occ < 0:
                 logger.print(
-                    f"[ERROR] Backbone atom '{rn}' at residue {resseq} has invalid occupancy {occ}. Please run 'enzywizard clean' first."
+                    f"[ERROR] Backbone atom '{atom_name}' at residue {resseq} has invalid occupancy {occ}. Please run 'enzywizard clean' first."
                 )
                 return False
 
-        required_heavy_atoms = AA3_REQUIRED_HEAVY_ATOMS.get(resname)
-        for atom_name in required_heavy_atoms:
-            if atom_name not in atoms_by_name:
-                logger.print(
-                    f"[ERROR] Missing heavy atom '{atom_name}' at residue {resseq} ({resname}). Please run 'enzywizard clean' first."
-                )
-                return False
+        expected_heavy_atom_set = AA3_EXPECTED_HEAVY_ATOM_SET.get(resname)
+        if expected_heavy_atom_set is None:
+            logger.print(f"[ERROR] No expected heavy atom definition for residue '{resname}' at residue {resseq}.")
+            return False
 
-        for atom_name in required_heavy_atoms:
+        actual_heavy_atom_set = set(atoms_by_name.keys())
+
+        if not expected_heavy_atom_set.issubset(actual_heavy_atom_set):
+            missing_atom_name_list = sorted(expected_heavy_atom_set - actual_heavy_atom_set)
+            logger.print(
+                f"[ERROR] Missing heavy atoms at residue {resseq} ({resname}): {missing_atom_name_list}. "
+                f"Please run 'enzywizard clean' first."
+            )
+            return False
+
+        allowed_heavy_atom_set = AA3_ALLOWED_HEAVY_ATOM_SET_WITH_OXT[resname]
+        if not actual_heavy_atom_set.issubset(allowed_heavy_atom_set):
+            unexpected_atom_name_list = sorted(actual_heavy_atom_set - allowed_heavy_atom_set)
+            logger.print(
+                f"[ERROR] Unexpected heavy atoms at residue {resseq} ({resname}): {unexpected_atom_name_list}. "
+                f"Please run 'enzywizard clean' first."
+            )
+            return False
+
+        for atom_name in actual_heavy_atom_set:
             chosen = choose_atom_altloc(atoms_by_name[atom_name])
             occ = chosen.get_occupancy()
             if occ is not None and occ < 0:

@@ -634,3 +634,16 @@ AA3_REQUIRED_HEAVY_ATOMS= {
     "TYR": {"N", "CA", "C", "O", "CB", "CG", "CD1", "CD2", "CE1", "CE2", "CZ", "OH"},
     "VAL": {"N", "CA", "C", "O", "CB", "CG1", "CG2"},
 }
+
+
+AA3_EXPECTED_HEAVY_ATOM_SET = {
+    aa_name: set(atom_name.strip().upper() for atom_name in atom_list)
+    for aa_name, atom_list in AA3_REQUIRED_HEAVY_ATOMS.items()
+}
+
+AA3_ALLOWED_HEAVY_ATOM_SET_WITH_OXT = {
+    aa_name: atom_set | {"OXT"}
+    for aa_name, atom_set in AA3_EXPECTED_HEAVY_ATOM_SET.items()
+}
+
+BACKBONE_REQUIRED_ATOMS = {"N", "CA", "C", "O"}

@@ -485,6 +485,7 @@ def validate_clean_report(data: Dict[str, Any], logger: Logger) -> bool:
         "removed_nonstd",
         "removed_missing_bb",
         "removed_missing_heavy_atoms",
+        "removed_unexpected_heavy_atoms",
         "removed_bad_occ",
         "removed_inscodes",
         "kept_residues",

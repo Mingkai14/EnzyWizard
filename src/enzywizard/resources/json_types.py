@@ -38,6 +38,7 @@ class CleanStatistics(TypedDict):
     removed_nonstd: int
     removed_missing_bb: int
     removed_missing_heavy_atoms: int
+    removed_unexpected_heavy_atoms: int
     removed_bad_occ: int
     removed_inscodes: int
     kept_residues: int

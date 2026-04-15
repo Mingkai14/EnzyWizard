@@ -7,6 +7,10 @@ from ..utils.common_utils import get_optimized_filename
 
 def run_clean_service(input_path: str | Path, output_dir: str | Path, add_H: bool = True, pH: float = 7.0, force_field_file: str = "charmm36.xml") ->bool:
     # ---- logger ----
+    input_path = Path(input_path)
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
     logger = Logger(output_dir)
     logger.print(f"[INFO] Clean processing started: {input_path}")
 
@@ -15,14 +19,10 @@ def run_clean_service(input_path: str | Path, output_dir: str | Path, add_H: boo
         logger.print(f"[ERROR] Invalid pH value: {pH}. Must be between 0 and 14.")
         return False
 
-    input_path = Path(input_path)
-    output_dir = Path(output_dir)
-
     if not file_exists(input_path):
         logger.print(f"[ERROR] Input not found: {input_path}")
         return False
 
-    output_dir.mkdir(parents=True, exist_ok=True)
 
     # ---- get name ----
     name = get_stem(input_path)
