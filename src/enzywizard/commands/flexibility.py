@@ -4,9 +4,9 @@ from ..services.flexibility_service import run_flexibility_service
 
 
 def add_flexibility_parser(subparsers) -> None:
-    parser = subparsers.add_parser("flexibility", help="Calculate protein flexibility (RMSF) from input CIF/PDB file.")
-    parser.add_argument("-i", "--input_path", required=True, help="Path to input CIF/PDB file.")
-    parser.add_argument("-o", "--output_dir", required=True, help="Path to a directory for outputting a JSON report.")
+    parser = subparsers.add_parser("flexibility", help="Estimate residue flexibility from a cleaned protein structure and generate a detailed JSON report.")
+    parser.add_argument("-i", "--input_path", required=True, help="Path to the input cleaned protein structure file in CIF or PDB format.")
+    parser.add_argument("-o", "--output_dir", required=True, help="Path to the output directory for saving the JSON report.")
     parser.add_argument("--method",type=str,choices=["ANM", "GNM"],default="ANM",help="Method for RMSF calculation: ANM or GNM (default: ANM).")
     parser.add_argument("--cutoff",type=float,default=15.0,help="Distance cutoff used to determine the residue connection in ProDy (default: 15.0).")
     parser.add_argument("--n_modes",type=int,default=20,help="Number of low-frequency normal modes used for RMSF calculation (default: 20).")
@@ -16,23 +16,57 @@ def add_flexibility_parser(subparsers) -> None:
 def run_flexibility(args: Namespace) -> None:
     run_flexibility_service(input_path=args.input_path,output_dir=args.output_dir,cutoff=args.cutoff,n_modes=args.n_modes,method=args.method)
 
+# ==============================
+# Command: enzywizard-flexibility
+# ==============================
+
+# brief introduction:
+'''
+EnzyWizard-Flexibility is a command-line tool for estimating residue
+flexibility from a cleaned protein structure and generating a detailed JSON report.
+It computes per-residue root mean square fluctuation (RMSF) values using elastic
+network models implemented in ProDy, including the Anisotropic Network Model (ANM)
+and Gaussian Network Model (GNM). These models capture intrinsic protein dynamics
+based on the topology of the structure and provide insight into residue mobility
+and collective motions.
+
+'''
+
+# example usage:
+'''
+Example command:
+
+enzywizard-flexibility -i examples/input/cleaned_3GP6.cif -o examples/output/
+
+'''
+
 # input parameters:
 '''
--i --input_path Required. Input cleaned CIF/PDB protein structure file.
+-i, --input_path
+Required.
+Path to the input cleaned protein structure file in CIF or PDB format.
 
--o --output_dir Required. Output directory for saving a JSON report.
+-o, --output_dir
+Required.
+Path to the output directory for saving the JSON report.
 
---method Optional. Method for RMSF calculation (default: ANM).
+--method
+Optional.
+Method for RMSF calculation (default: ANM).
 Supported values:
 - ANM: Anisotropic Network Model
 - GNM: Gaussian Network Model
 
---cutoff Optional. Distance cutoff for building the residue connection in ProDy (default: 15.0).
+--cutoff
+Optional.
+Distance cutoff for building the residue connection in ProDy (default: 15.0).
 Residues whose CA atoms are within this cutoff are considered connected.
 This parameter controls the connectivity density of the elastic network.
 A smaller cutoff gives a sparser network, while a larger cutoff gives a denser network.
 
---n_modes Optional. Number of low-frequency normal modes used for RMSF calculation (default: 20).
+--n_modes
+Optional.
+Number of low-frequency normal modes used for RMSF calculation (default: 20).
 These modes represent collective motions of the protein.
 Using more modes includes more motion information, while using fewer modes
 focuses more on the largest-scale global motions.
@@ -40,73 +74,98 @@ focuses more on the largest-scale global motions.
 
 # output content:
 '''
-The program outputs a JSON report that records:
+The program outputs the following file into the output directory:
 
-1. "output_type": "enzywizard_flexibility"
+1. A JSON report
+   - flexibility_report_{name}.json
 
-2. "protein_rmsf": a list of per-residue RMSF records, each including:
-   - aa_id: residue sequence index
-   - aa_name: residue name
-   - rmsf: calculated RMSF value
+   The JSON report contains:
+
+   - "output_type"
+     A string identifying the report type:
+     "enzywizard_flexibility"
+
+   - "protein_rmsf"
+     A list describing residue-level flexibility for each residue in the
+     cleaned protein structure.
+
+     Each entry contains:
+     - "aa_id"
+       Residue index in the cleaned structure.
+
+     - "aa_name"
+       Residue one-letter amino acid code.
+
+     - "rmsf"
+       Root mean square fluctuation (RMSF) value estimated from the selected
+       elastic network model.
 '''
 
-# functionality/process
+# Process:
 '''
-It processes a cleaned protein structure by:
+This command processes the input cleaned protein structure as follows:
 
-1. Loading the input structure in Biopython format;
+1. Load the input structure
+   - Read the cleaned CIF or PDB file using Biopython (Bio.PDB).
+   - Resolve the protein name from the input filename.
 
-2. Checking whether the input structure satisfies the EnzyWizard cleaned
-   structure requirements, including:
-   - exactly one model and one chain with chain ID "A"
-   - continuous residue numbering starting from 1
-   - no insertion codes
-   - only standard amino acid residues
-   - complete backbone atoms (N, CA, C)
-   - complete required heavy atoms
-   - valid occupancy values
+2. Validate basic input conditions
+   - Check that the input file exists.
+   - Validate that the input structure satisfies the cleaned-structure requirement.
 
-3. Extracting CA coordinates for all amino acid residues;
+3. Extract structural information
+   - Extract the single chain from the cleaned structure.
+   - Retrieve all residues in chain order.
+   - Extract CA atom coordinates for each residue.
+   - Ensure sufficient residues are available for flexibility calculation.
 
-4. Building an elastic network model in ProDy based on the selected method;
+4. Build elastic network model
+   - Construct an elastic network model using ProDy based on the selected method:
 
-    ANM (Anisotropic Network Model): 
+     ANM (Anisotropic Network Model):
+     - Builds a Hessian matrix from the CA-based elastic network.
+     - Solves low-frequency normal modes.
+     - Computes square fluctuations from these modes.
+     - Converts square fluctuations into RMSF values.
+     - Captures directional (anisotropic) motions of residues.
 
-     Builds a Hessian matrix from the CA-based elastic network, solves the
-     low-frequency normal modes, computes residue square fluctuations from
-     these modes, and converts them to RMSF.
+     GNM (Gaussian Network Model):
+     - Builds a Kirchhoff matrix from the CA-based elastic network.
+     - Solves low-frequency normal modes.
+     - Computes square fluctuations from these modes.
+     - Converts square fluctuations into RMSF values.
+     - Captures isotropic residue mobility without directional information.
 
-     ANM models residue motions as 3D directional fluctuations in an elastic
-     network. It preserves motion direction information, so it is more suitable
-     for describing anisotropic and collective structural motions.
-    
-    GNM (Gaussian Network Model)
+5. Calculate RMSF values
+   - Convert square fluctuations into RMSF values by taking square roots.
+   - Ensure consistency between residue count and RMSF results.
 
-     Builds a Kirchhoff matrix from the CA-based elastic network, solves the
-     low-frequency normal modes, computes residue square fluctuations from
-     these modes, and converts them to RMSF.
+6. Assemble residue-level results
+   - For each residue, record:
+     - residue index (aa_id)
+     - amino acid type (aa_name)
+     - RMSF value (rmsf)
 
-     GNM models residue motions as isotropic fluctuations in a residue contact
-     network. It does not describe motion directions, but captures the relative
-     mobility of residues efficiently and robustly.
-    
-
-5. Calculating square fluctuations from the selected normal modes and converting
-   them to RMSF values;
-
-6. Generating a structured JSON report containing per-residue RMSF values.
-'''
-
-# dependency:
-'''
-Biopython
-ProDy
-NumPy
+7. Save outputs
+   - Generate and save a JSON report containing per-residue flexibility values.
 '''
 
-# reference:
+# dependencies:
 '''
-ProDy documentation
-https://prody.csb.pitt.edu/
+- Biopython
+- ProDy
+- NumPy
+'''
+
+# references:
+'''
+- ProDy:
+  https://prody.csb.pitt.edu/
+
+- ProDy documentation:
+  https://prody.csb.pitt.edu/manual/
+
+- Elastic Network Models:
+  Bahar et al., "Direct evaluation of thermal fluctuations in proteins using a single-parameter harmonic potential", Folding & Design (1997)
 '''
 
