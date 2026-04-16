@@ -4,9 +4,9 @@ from ..services.substrate_service import run_substrate_service
 
 
 def add_substrate_parser(subparsers) -> None:
-    parser = subparsers.add_parser("substrate",help="Fetch/calculate substrate molecular information and generate 3D substrate structures from substrate names/SMILES.")
+    parser = subparsers.add_parser("substrate",help="Process small-molecule substrates from substrate names or SMILES strings and generate a detailed JSON report together with substrate structure files in SDF format.")
     parser.add_argument("-s","--substrate_names",required=True,help="Input substrate names or SMILES strings. Multiple substrate names/SMILES should be separated by ','.")
-    parser.add_argument("-o","--output_dir",required=True,help="Path to a directory for outputting a JSON report and generated substrate structure files in SDF format.")
+    parser.add_argument("-o","--output_dir",required=True,help="Path to the output directory for saving the JSON report and generated substrate structure files in SDF format.")
     parser.add_argument("--max_synonyms",type=int,default=20,help="Maximum number of substrate synonyms retried when fetching SMILES from a substrate name (default: 20). A larger value may improve recall but will increase API requests and runtime.")
     parser.add_argument("--fp_radius",type=int,default=2,help="Radius used for Morgan fingerprint generation (default: 2). This controls the topological neighborhood size considered around each atom. Larger values capture broader local environments but may produce sparser fingerprints.")
     parser.add_argument("--n_bits",type=int,default=512,help="Bit size of the Morgan fingerprint vector (default: 512). Larger values reduce bit collisions but increase feature dimensionality.")
@@ -28,153 +28,227 @@ def run_substrate(args: Namespace) -> None:
     )
 
 
+# ==============================
+# Command: enzywizard-substrate
+# ==============================
+
+# brief introduction:
+'''
+EnzyWizard-Substrate is a command-line tool for processing small-molecule
+substrates from user-provided substrate names or SMILES strings and generating
+a detailed JSON report together with substrate structure files in SDF format.
+It supports multiple substrate inputs in a single run.
+For substrate names input, the tool automatically retrieves substrate information
+through ChEBI and PubChem APIs, and retries synonym-expanded matching
+to improve name-to-SMILES resolution. Based on substrate SMILES, the tool performs substrate characterization,
+including molecular fingerprint generation and basic molecular descriptor calculation.
+It automatically adds hydrogens to substrate, constructs possible 3D substrate
+structures, minimizes the conformation energy, and saves the resulting 3D
+substrate conformations as SDF files for downstream analysis.
+'''
+
+# example usage:
+'''
+Example command:
+
+enzywizard-substrate -s glucose,fructose -o examples/output/
+
+'''
+
 # input parameters:
 '''
--s --substrate_names Required. Input substrate names or SMILES strings.
+-s, --substrate_names
+Required.
+Input substrate names or SMILES strings.
 Multiple substrates are supported and should be separated by ','.
 
 Examples:
-- glucose
-- CCO
-- glucose,fructose,acetate
-- glucose,CCO,lactate
+  - glucose
+  - CCO
+  - glucose,fructose,acetate
+  - glucose,CCO,lactate
 
 If one input item is already a valid SMILES string, it will be recorded directly.
 Its internal substrate name will be automatically assigned as smiles1, smiles2, etc.
 
--o --output_dir Required. Output directory for saving a JSON report and
-generated substrate structure files.
+-o, --output_dir
+Required.
+Path to the output directory for saving the JSON report and generated substrate
+structure files in SDF format.
 
---max_synonyms Optional. Maximum number of synonyms retried in matching 
-when fetching a SMILES from a substrate name (default: 20) by ChEBI and PubChem APIs.
-This parameter controls the upper limit of synonym-expanded retry attempts
-after direct ChEBI and PubChem resolution fails. Larger values may improve
-name-to-SMILES recall for difficult compound names, but they also increase
-the number of web requests and runtime.
+--max_synonyms
+Optional.
+Maximum number of substrate synonyms retried when fetching SMILES from a substrate name.
 
---fp_radius Optional. Radius used for Morgan fingerprint generation(default: 2).
-This parameter controls how many topological bond layers around each atom are
-considered when building the fingerprint. A larger radius captures broader
-local structural environments.
+Default:
+  20
 
---n_bits Optional. Bit size of the Morgan fingerprint vector (default: 512).
-This parameter controls the fingerprint length. Larger values reduce bit
-collisions but increase feature dimensionality.
+A larger value may improve recall for difficult substrate names, but will increase
+API requests and runtime.
 
---num_confs Optional. Maximum number of 3D conformers generated for each
-substrate after hydrogen addition (default: 5).
-This parameter controls conformational sampling breadth. Larger values may
-capture more structural diversity but increase runtime.
+--fp_radius
+Optional.
+Radius used for Morgan fingerprint generation.
 
---prune_rms Optional. RMS threshold used to prune highly similar conformers
-during conformer embedding (default: 0.5).
-This parameter controls conformer redundancy removal. Smaller values are more
-strict and retain fewer, more distinct conformers; larger values allow more
-similar conformers to remain.
+Default:
+  2
+
+This parameter controls the topological neighborhood size considered around each atom.
+Larger values capture broader local environments.
+
+--n_bits
+Optional.
+Bit size of the Morgan fingerprint vector.
+
+Default:
+  512
+
+Larger values reduce bit collisions but increase feature dimensionality.
+
+--num_confs
+Optional.
+Maximum number of 3D structures to generate for each substrate.
+
+Default:
+  5
+
+Larger values increase conformational coverage but also increase runtime.
+
+--prune_rms
+Optional.
+RMS threshold used to prune highly similar conformers during 3D conformer generation.
+
+Default:
+  0.5
+
+Smaller values keep only more distinct conformers, while larger values allow
+more similar conformers to be retained.
 '''
-
 
 # output content:
 '''
-The program outputs:
+The program outputs the following files into the output directory:
 
-1. A JSON report recording:
-   - "output_type": "enzywizard_substrate"
-   - "substrates": a list of substrate records
+1. A JSON report
+   - substrate_report_{substrate_suffix}.json
 
-2. For each substrate record, the JSON report includes:
-   - substrate_name
-   - smiles
-   - fingerprint
-   - num_atoms
-   - mol_weight
-   - logp
-   - structures
+   The JSON report contains:
 
-3. "structures" is a list of generated 3D substrate structures, where each
-   entry contains:
-   - structure_name
-   - structure_energy
+   - "output_type"
+     A string identifying the report type:
+     "enzywizard_substrate"
 
-4. The actual 3D molecular objects are not stored in the JSON report.
-   Instead, they are written as separate SDF files in output_dir.
+   - "substrates"
+     A list describing processed substrates.
 
-5. Substrate structure file naming:
-   - each generated structure is named as:
-     substrate_name_1.sdf
-     substrate_name_2.sdf
-     substrate_name_3.sdf
-     ...
-   - before saving, the structure name is cleaned into a filesystem-safe name
-   - invalid filename characters are replaced with '_'
-   - the final structure filename stem is truncated to at most 50 characters
+     Each entry contains:
+     - "substrate_name"
+       Resolved substrate name used internally by the program.
 
-6. If a substrate cannot be resolved to a SMILES string, or if part of the
-   downstream structure generation fails, the corresponding report fields may
-   remain empty strings "" or an empty list [] depending on the step.
+     - "smiles"
+       Final SMILES string used for downstream processing.
+
+     - "fingerprint"
+       Morgan fingerprint bit vector of the substrate.
+
+     - "num_atoms"
+       Number of atoms in the substrate.
+
+     - "mol_weight"
+       Molecular weight of the substrate.
+
+     - "logp"
+       Calculated logP value of the substrate.
+
+     - "structures"
+       A list of generated 3D substrate conformations.
+
+       Each structure entry contains:
+       - "structure_name"
+         Name of the generated substrate structure.
+
+       - "structure_energy"
+         UFF energy of the generated 3D conformation.
+
+2. Substrate structure files in SDF format
+   - {structure_name}.sdf
+
+   One SDF file is saved for each valid generated 3D conformation.
+
 '''
 
-
-# functionality/process
+# Process:
 '''
-It processes substrates by:
+This command processes the input substrates as follows:
 
-1. Parsing the input substrate_names string using ';' as the separator to
-   obtain multiple substrate entries;
+1. Parse input substrates
+   - Read the input substrate_names string.
+   - Split multiple substrates by ','.
+   - Determine whether each entry is a substrate name or a valid SMILES string.
 
-2. Determining whether each entry is already a valid SMILES string:
-   - if yes, it is recorded directly and assigned an internal substrate name
-     such as smiles1, smiles2, etc.
-   - if not, it is treated as a substrate name and a SMILES string is searched
+2. Resolve substrate identity
+   - For valid SMILES input:
+       - record the SMILES directly
+       - assign an internal substrate name such as smiles1, smiles2, etc.
+   - For substrate name input:
+       - query ChEBI for exact matches
+       - attempt exact and normalized name matching
+       - query PubChem for CID and SMILES
+       - retrieve PubChem synonyms
+       - expand synonyms and retry ChEBI matching when necessary
 
-3. Resolving substrate names to SMILES strings through a staged strategy:
-   - ChEBI exact search
-   - exact/normalized name matching within ChEBI results
-   - PubChem name-to-CID resolution
-   - PubChem CID-to-SMILES extraction
-   - PubChem synonym expansion followed by retrying ChEBI exact matching
+3. Construct 2D molecular representation
+   - Convert each resolved SMILES string into an RDKit 2D molecular object.
+   - Validate molecular structure consistency.
 
-4. Converting each resolved SMILES string into an RDKit 2D molecular object;
+4. Calculate substrate features
+   - Compute Morgan fingerprint representation.
+   - Compute selected 2D molecular descriptors, including:
+       - atom count
+       - molecular weight
+       - logP
 
-5. Calculating a Morgan fingerprint and selected 2D molecular descriptors,
-   including:
-   - atom count
-   - molecular weight
-   - logP
+5. Add hydrogens
+   - Automatically add explicit hydrogen atoms to each valid 2D molecule
+     before 3D conformer generation using RDKit.
 
-6. Adding explicit hydrogen atoms to the 2D molecular object;
+6. Generate 3D substrate structures
+   - Generate multiple candidate 3D conformers using RDKit embedding.
+   - Apply RMS-based pruning to remove highly redundant conformers.
 
-7. Generating multiple 3D conformers from the hydrogen-added molecule using
-   RDKit conformer embedding;
+7. Minimize energy
+   - Minimize each generated 3D conformer's energy using the UFF force field.
+   - Compute conformer energy values for ranking.
 
-8. Minimizing each generated 3D conformer using the UFF force field;
+8. Rank and organize conformers
+   - Sort valid conformers by increasing energy.
+   - Rename them in a consistent order such as substrate_1, substrate_2, etc.
 
-9. Calculating the UFF energy of each minimized 3D conformer;
-
-10. Saving each valid minimized 3D conformer as an individual SDF file in the
-    output directory;
-
-11. Generating a structured JSON report summarizing the resolved substrate
-    information, computed descriptors, and saved 3D structure metadata.
+9. Save outputs
+   - Save each valid 3D substrate conformation as an individual SDF file.
+   - Generate and save a JSON report summarizing resolved substrate information,
+     computed features, and generated structure metadata.
 '''
 
-
-# dependency:
+# dependencies:
 '''
-RDKit
-requests
-urllib3
+- RDKit
+- requests
+- urllib3
+- NumPy
 '''
 
-
-# reference:
+# references:
 '''
-RDKit documentation
-https://www.rdkit.org/
+- RDKit:
+  https://www.rdkit.org/
 
-PubChem PUG REST API
-https://pubchem.ncbi.nlm.nih.gov/docs/pug-rest
+- RDKit Book:
+  https://www.rdkit.org/docs/RDKit_Book.html
 
-ChEBI
-https://www.ebi.ac.uk/chebi/
+- PubChem PUG REST API:
+  https://pubchem.ncbi.nlm.nih.gov/docs/pug-rest
+
+- ChEBI:
+  https://www.ebi.ac.uk/chebi/
 '''

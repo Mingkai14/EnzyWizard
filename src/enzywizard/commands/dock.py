@@ -4,11 +4,11 @@ from ..services.dock_service import run_dock_service
 
 
 def add_dock_parser(subparsers) -> None:
-    parser = subparsers.add_parser("dock",help="Perform substrate docking for an input CIF/PDB structure using substrate SDF files.")
-    parser.add_argument("-i", "--input_path",required=True,help="Path to input CIF/PDB file.")
+    parser = subparsers.add_parser("dock",help="Perform molecular docking of one or multiple substrates with a cleaned protein structure and generating a detailed JSON report.")
+    parser.add_argument("-i", "--input_path",required=True,help="Path to the input cleaned protein structure file in CIF or PDB format.")
     parser.add_argument("-s", "--substrate_names",required=True,help="Input substrate names separated by ','. Each substrate name must match corresponding SDF file names in substrate_dir.")
-    parser.add_argument("-d","--substrate_dir",required=True,help="Path to a directory containing input substrate SDF files used for docking.")
-    parser.add_argument("-o", "--output_dir",required=True,help="Path to a directory for outputting docked substrate SDF files, docked protein-substrate complex CIF/PDB files, and a JSON report.")
+    parser.add_argument("-d","--substrate_dir",required=True,help="Path to a directory containing input substrate SDF files.")
+    parser.add_argument("-o", "--output_dir",required=True,help="Directory to save docking outputs and the JSON report.")
     parser.add_argument("--max_docking_attempt_num",type=int,default=20,help="Maximum number of docking attempts (default: 20).")
     parser.add_argument("--early_stop", type=lambda x: str(x).lower() in ["true", "1", "yes"], default=False, help="Whether to stop immediately after the first successful docking result (True/False, default: False). If True, the returned result may not be the global best.")
     parser.add_argument("--exhaustiveness",type=int,default=16,help="Exhaustiveness of AutoDock Vina search (default: 16). Larger values may improve docking search coverage but increase runtime.")
@@ -36,186 +36,277 @@ def run_dock(args: Namespace) -> None:
     )
 
 
+# ==============================
+# Command: enzywizard-dock
+# ==============================
+
+# brief introduction:
+'''
+EnzyWizard-Dock is a command-line tool for performing molecular docking
+of one or multiple substrates with a cleaned protein structure and
+generating a detailed JSON report.
+It takes a CIF or PDB protein structure and substrate directory as input and performs docking
+using AutoDock Vina. The tool supports both single-substrate docking and
+simultaneous multi-substrate docking.
+For each substrate, multiple conformations (protomers) can be provided as
+separate SDF files. The program automatically enumerates all possible
+combinations of conformations of the same substrate and performs docking to identify
+the optimal binding result.
+Binding pockets are detected using PyVOL with a global docking box as fallback.
+The tool outputs structured docking results suitable for downstream
+applications such as enzyme-substrate interaction analysis, binding mode
+evaluation, and enzyme characterising.
+'''
+
+# example usage:
+'''
+Example command:
+
+enzywizard-dock -i examples/input/cleaned_3GP6.cif -s glucose,fructose -d examples/input/ -o examples/output/
+'''
+
 # input parameters:
 '''
--i --input_path Required. Path to input cleaned protein structure file (CIF or PDB).
+-i, --input_path
+Required.
+Path to the input cleaned protein structure file in CIF or PDB format.
 
--s --substrate_names Required. Input substrate names separated by ','.
+-s, --substrate_names
+Required.
+Input substrate names separated by ','.
 
 Examples:
 - glucose
 - glucose,fructose
-- acetate,ethanol
+- smiles1,smiles2
 
 This parameter represents a multi-substrate combination for docking.
 
-This parameter helps program to support:
-- single-substrate docking
-- multi-substrate simultaneous docking
-- multi-conformation substrate combining
-
-For intput substrate_names "SubstrateA,SubstrateB", the program searches substrate_dir for matched SDF files:
+For input substrate_names "SubstrateA,SubstrateB", the program searches
+substrate_dir for matched SDF files:
 
 - SubstrateA.sdf
 - SubstrateA_1.sdf
 - SubstrateA_2.sdf
-- SubstrateA_3.sdf
 - ...
 
 - SubstrateB.sdf
 - SubstrateB_1.sdf
 - SubstrateB_2.sdf
-- SubstrateB_3.sdf
 - ...
 
-The matched SDF files are treated as different conformations to combine and attempt docking:
+Each matched SDF file represents a different conformation.
+The program automatically enumerates combinations such as:
 
-- SubstrateA_1.sdf + SubstrateB_1.sdf
-- SubstrateA_1.sdf + SubstrateB_2.sdf
-- SubstrateA_1.sdf + SubstrateB_3.sdf
+- SubstrateA_1 + SubstrateB_1
+- SubstrateA_1 + SubstrateB_2
 - ...
+
+and performs docking for each combination to identify the optimal result.
 
 Duplicate substrate names are not allowed.
 
--d --substrate_dir Required. Path to a directory containing input substrate SDF files. The program only reads matched .sdf files from this directory.
+-d, --substrate_dir
+Required.
+Path to a directory containing input substrate SDF files.
 
--o --output_dir Required. Output directory for saving docked substrate files, docked protein-substrate complex files, and a JSON report.
+-o, --output_dir
+Required.
+Directory to save docking outputs and the JSON report.
 
---max_docking_attempt_num Optional. Maximum number of docking attempts (default: 20).
+--max_docking_attempt_num
+Optional.
+Maximum number of docking attempts.
 
---early_stop Optional. Whether to stop immediately after the first successful docking result (True/False, default: False).
+Default:
+  20
+
+--early_stop
+Optional.
+Whether to stop immediately after the first successful docking result.
+
+Default:
+  False
 
 If True, the program returns the first successful result and does not continue searching for a better one.
 
---exhaustiveness Optional. Exhaustiveness of AutoDock Vina search (default: 16). Larger values may improve search coverage but increase runtime.
+--exhaustiveness
+Optional.
+Exhaustiveness of AutoDock Vina search.
 
---cpu Optional. Number of CPUs used by AutoDock Vina (default: 0). A value of 0 lets Vina decide automatically.
+Default:
+  16
 
---min_rad Optional. Minimum probe radius used for pocket detection (default: 1.8). Smaller values may detect narrower cavities, but overly small values may cause PyVOL/MSMS failure.
+Larger values may improve docking search coverage but increase runtime.
 
---max_rad Optional. Maximum probe radius used for pocket detection (default: 6.2). Larger values may detect broader cavities, but overly large values may cause PyVOL/MSMS failure.
+--cpu
+Optional.
+Number of CPUs used by AutoDock Vina.
 
---min_volume Optional. Minimum pocket volume threshold used to filter detected pockets (default: 50). Larger values retain only larger pocket candidates.
+Default:
+  0
+
+A value of 0 lets Vina decide automatically.
+
+--min_rad
+Optional.
+Minimum probe radius used in pocket detection.
+
+Default:
+  1.8
+
+--max_rad
+Optional.
+Maximum probe radius used in pocket detection.
+
+Default:
+  6.2
+
+--min_volume
+Optional.
+Minimum pocket volume threshold.
+
+Default:
+  50
 '''
-
 
 # output content:
 '''
-The program outputs:
+The program outputs the following files into the output directory:
 
-1. A JSON report containing:
-   - "output_type": "enzywizard_dock"
-   - "docked_result": the best docking result record
+1. A JSON report
+   - dock_report_{protein_name}_{substrate_names}.json
 
-1.1 The "docking_result" includes:
-   - complex_name
-   - docking_score
-   - substrate_names
-   - docking_box_center
-   - docking_box_size
-   - docked_substrates
+   The JSON report contains:
 
-1.2 The "docked_substrates" includes a list of docked substrate records, and each record contains:
-   - substrate_name
-   - conformation_name
-   - docked_center_coord
+   - "output_type"
+     A string identifying the report type:
+     "enzywizard_dock"
+
+   - "docked_result"
+     A dictionary describing the best docking result.
+
+     It includes:
+     - "complex_name"
+       Name of the docked protein-substrate complex.
+
+     - "docking_score"
+       Docking energy score from AutoDock Vina.
+
+     - "substrate_names"
+       Input substrate names.
+
+     - "docking_box_center"
+       Center coordinates of the docking box.
+
+     - "docking_box_size"
+       Size of the docking box.
+
+     - "docked_substrates"
+       A list describing each docked substrate.
+
+       Each entry contains:
+       - "substrate_name"
+       - "conformation_name"
+       - "docked_center_coord"
 
 2. Files:
-   - one docked SDF file for each docked substrate
-   - one docked protein-substrate complex CIF file
-   - one JSON report
+   - Docked SDF file for each substrate:
+     docked_{substrate_name}.sdf
 
+   - Docked protein-substrate complex CIF file:
+     docked_{protein_name}_{substrate_names}.cif
 '''
 
-
-# functionality/process
+# Process:
 '''
-It performs docking by:
+This command processes the input cleaned protein structure as follows:
 
-1. Reading the cleaned input protein structure from input_path;
+1. Load the input structure
+   - Read the cleaned CIF or PDB file using Biopython (Bio.PDB).
+   - Resolve the protein name from the input filename.
 
-2. Checking whether the structure satisfies cleaned-structure requirements;
+2. Validate input conditions
+   - Check that the input file exists.
+   - Validate that the structure satisfies the cleaned-structure requirement.
 
-3. Detecting pocket regions from the protein structure using PyVOL;
+3. Detect pocket regions
+   - Use PyVOL to detect pocket regions from the protein structure.
 
-4. Calculating a global docking box from the whole protein structure;
+4. Compute global docking box
+   - Calculate a bounding box covering the entire protein structure.
 
-5. Parsing substrate_names using ',' as the separator to obtain one or more
-   substrate names for docking;
+5. Parse substrate inputs
+   - Split substrate_names by ',' to obtain substrate list.
 
-6. Searching substrate_dir for matched SDF files for each substrate name from input "substrate_names" (e.g. "SubstrateA,SubstrateB"):
+6. Search substrate files
+   - Locate matched SDF files for each substrate in substrate_dir.
 
-- SubstrateA.sdf
-- SubstrateA_1.sdf
-- SubstrateA_2.sdf
-- SubstrateA_3.sdf
-- ...
+7. Enumerate substrate conformations
+   - Treat multiple SDF files of the same substrate as alternative conformations.
+   - Generate all combinations of substrate conformations.
 
-- SubstrateB.sdf
-- SubstrateB_1.sdf
-- SubstrateB_2.sdf
-- SubstrateB_3.sdf
-- ...
+8. Prepare docking inputs
+   - Convert protein structure to receptor PDBQT format.
+   - Convert each substrate SDF to ligand PDBQT format.
 
-7. Treating matched SDF files of the same substrate as alternative
-   conformations, and automatically enumerating substrate
-   combinations for docking;
+9. Build docking boxes
+   - Use pocket-based boxes.
+   - Add one global structure box.
 
-8. Converting the protein structure into receptor PDBQT format and converting
-   each matched substrate SDF into ligand PDBQT format;
+10. Perform docking
+   - Iterate over substrate combinations and docking boxes.
+   - Perform AutoDock Vina docking for each case.
 
-9. Building docking boxes from:
-   - detected pocket boxes
-   - one global whole-structure box
+11. Parse docking results
+   - Extract docking poses and energies.
+   - Map docked coordinates back to original ligand atoms.
 
-10. Iterating over substrate combinations and docking boxes, and performing
-    AutoDock Vina docking for single substrate docking/simultaneous multi-substrate docking;
+12. Select best result
+   - Choose the docking result with lowest energy.
+   - Optionally stop early if early_stop=True.
 
-11. Reading docking poses and energies returned by Vina;
+13. Save docking outputs
+   - Write docked substrate SDF files.
+   - Generate protein-substrate complex CIF file.
 
-12. Writing docked substrate SDF files;
-
-13. Writing the docked protein-substrate complex CIF file;
-
-14. Selecting and saving the best docking result, then generating a structured JSON report.
-'''
-
-
-# dependency:
-'''
-AutoDock Vina
-Meeko (for PDBQT preparation)
-RDKit
-Biopython
-PyVOL
-MSMS (used by PyVOL)
+14. Generate report
+   - Save structured JSON report summarizing docking results.
 '''
 
-
-# reference:
+# dependencies:
 '''
-Eberhardt et al., AutoDock Vina 1.2.0: New docking methods, expanded force field, and Python bindings
-https://doi.org/10.1021/acs.jcim.1c00203
+- AutoDock Vina
+- Meeko
+- RDKit
+- Biopython
+- PyVOL
+- MSMS
+'''
 
-Trott & Olson, AutoDock Vina: improving the speed and accuracy of docking
-https://doi.org/10.1002/jcc.21334
+# references:
+'''
+- Eberhardt et al., AutoDock Vina 1.2.0
+  https://doi.org/10.1021/acs.jcim.1c00203
 
-AutoDock Vina official documentation
-https://vina.scripps.edu/
+- Trott & Olson, AutoDock Vina
+  https://doi.org/10.1002/jcc.21334
 
-Meeko: Preparation of small molecules for AutoDock
-https://github.com/forlilab/Meeko
+- AutoDock Vina:
+  https://vina.scripps.edu/
 
-RDKit: Open-source cheminformatics
-https://www.rdkit.org/
+- Meeko:
+  https://github.com/forlilab/Meeko
 
-Biopython: Structural bioinformatics tools
-https://biopython.org/
+- RDKit:
+  https://www.rdkit.org/
 
-PyVOL: Python interface for binding pocket detection
-https://github.com/schlessinger-lab/pyvol
+- Biopython:
+  https://biopython.org/
 
-MSMS: Molecular surface calculation
-Sanner et al., Reduced surface: an efficient way to compute molecular surfaces
-https://doi.org/10.1002/jcc.540150805
+- PyVOL:
+  https://github.com/schlessinger-lab/pyvol
+
+- MSMS:
+  https://doi.org/10.1002/jcc.540150805
 '''

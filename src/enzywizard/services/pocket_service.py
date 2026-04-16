@@ -7,7 +7,7 @@ from ..algorithms.clean_algorithms import check_cleaned_structure
 from ..algorithms.pocket_algorithms import compute_pockets, generate_pocket_report
 from ..utils.common_utils import get_optimized_filename
 
-def run_pocket_service(input_path: str | Path, output_dir: str | Path, min_rad: int = 1.8, max_rad: int =6.2, min_volume: int =50) -> bool:
+def run_pocket_service(input_path: str | Path, output_dir: str | Path, min_rad: float = 1.8, max_rad: float =6.2, min_volume: int =50) -> bool:
     # ---- logger ----
     logger = Logger(output_dir)
     logger.print(f"[INFO] Pocket processing started: {input_path}")
