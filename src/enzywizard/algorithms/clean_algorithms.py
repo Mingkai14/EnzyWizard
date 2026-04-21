@@ -26,16 +26,20 @@ import math
 from ..utils.sequence_utils import normalize_aa_name_to_one_letter
 
 def clean_structure_to_single_chain_A(struct: Structure, logger: Logger) -> Tuple[Structure, Dict[Tuple[int, str, str], Tuple[int, str, str]], Dict[str, int]] | None:
+    # obtain single old chain
     old_chain = get_single_chain(struct, logger)
     if old_chain is None:
         return None
 
+    # create a new single-chain structure
     new_struct = Structure(struct.id + "_cleaned")
     new_model = Model(0)
     new_chain = Chain("A")
 
+    # mapping
     mapping_old_to_new: Dict[Tuple[int, str, str], Tuple[int, str, str]] = {}
 
+    # statistics
     new_resseq = 0
     removed_nonstd = 0
     removed_missing_bb = 0
@@ -48,15 +52,18 @@ def clean_structure_to_single_chain_A(struct: Structure, logger: Logger) -> Tupl
     for res in old_chain.get_residues():
         hetflag, resseq, icode = res.id
 
+        # map and replace non-standard residues
         resname_old = res.get_resname().strip()
         resname_std = standardize_resname(resname_old)
         if resname_std != resname_old:
             changed_resname += 1
 
+        # remove still non-standard residues
         if resname_std not in AA3_STANDARD:
             removed_nonstd += 1
             continue
 
+        # collect atoms grouped by normalized atom name and track heavy atoms
         atoms_by_name: Dict[str, List[Atom]] = {}
         actual_heavy_atom_set = set()
 
@@ -67,10 +74,12 @@ def clean_structure_to_single_chain_A(struct: Structure, logger: Logger) -> Tupl
             if not is_hydrogen_atom(atom):
                 actual_heavy_atom_set.add(atom_name)
 
+        # remove residues missing required backbone atoms (N, CA, C, O)
         if any(atom_name not in actual_heavy_atom_set for atom_name in BACKBONE_REQUIRED_ATOMS):
             removed_missing_bb += 1
             continue
 
+        # remove residues missing expected standard heavy atoms
         expected_heavy_atom_set = AA3_EXPECTED_HEAVY_ATOM_SET.get(resname_std)
         if expected_heavy_atom_set is None:
             removed_nonstd += 1
@@ -80,11 +89,13 @@ def clean_structure_to_single_chain_A(struct: Structure, logger: Logger) -> Tupl
             removed_missing_heavy_atoms += 1
             continue
 
+        # remove residues containing unexpected heavy atoms
         allowed_heavy_atom_set = AA3_ALLOWED_HEAVY_ATOM_SET_WITH_OXT[resname_std]
         if not actual_heavy_atom_set.issubset(allowed_heavy_atom_set):
             removed_unexpected_heavy_atoms += 1
             continue
 
+        # check backbone atom occupancy (filter invalid negative occupancy)
         bad_occ = False
         for atom_name in BACKBONE_REQUIRED_ATOMS:
             chosen = choose_atom_altloc(atoms_by_name[atom_name])
@@ -98,24 +109,30 @@ def clean_structure_to_single_chain_A(struct: Structure, logger: Logger) -> Tupl
 
         old_resseq = int(resseq)
         old_icode = str(icode)
+        # track and remove insertion codes (all residues are renumbered without icode)
         if old_icode.strip():
             removed_inscodes += 1
 
+        # record mapping from original residue (resseq, name, icode) to new residue
         new_resseq += 1
         new_icode = " "
         mapping_old_to_new[(old_resseq, resname_old, old_icode)] = (new_resseq, resname_std, new_icode)
 
+        # create new residue with standardized name and continuous numbering
         new_res = Residue((" ", new_resseq, " "), resname_std, res.get_segid())
 
+        # select one altloc per atom and clone into new residue
         for atom_name, atom_list in atoms_by_name.items():
             chosen = choose_atom_altloc(atom_list)
             new_res.add(clone_atom(chosen))
 
         new_chain.add(new_res)
 
+    # assemble cleaned structure
     new_model.add(new_chain)
     new_struct.add(new_model)
 
+    # summarize cleaning statistics
     stats = {
         "changed_resname": changed_resname,
         "removed_nonstd": removed_nonstd,
